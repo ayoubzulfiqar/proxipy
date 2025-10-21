@@ -1,0 +1,13 @@
+fastapi
+hypercorn
+httpx
+python-multipart
+python-jose[cryptography]
+passlib[bcrypt]
+redis
+slowapi
+pydantic-settings
+pydantic
+email-validator
+gunicorn
+pytest
