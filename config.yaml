@@ -1,0 +1,61 @@
+# Proxipy Configuration File
+# This file provides enhanced configuration options for the proxy server
+
+# Server Configuration
+app_name: "CORS Proxy Server"
+version: "1.0.0"
+debug: false
+host: "0.0.0.0"
+port: 8000
+
+# Performance & Concurrency
+max_connections: 100
+max_workers: 4
+connection_timeout: 30.0
+read_timeout: 60.0
+write_timeout: 30.0
+stream_chunk_size: 8192
+max_response_size: 104857600 # 100MB
+
+# Security
+secret_key: "your-secret-key-change-in-production"
+allowed_hosts: ["*"]
+allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"]
+allowed_headers: ["*"]
+max_content_length: 52428800 # 50MB
+
+# Rate Limiting
+rate_limit_enabled: true
+redis_url: "redis://localhost:6379"
+rate_limit_per_minute: 60
+rate_limit_per_hour: 1000
+rate_limit_burst: 10
+
+# Security Headers & Policies
+enable_csp: true
+enable_hsts: true
+enable_https_only: false
+enable_cors: true
+enable_corp: true
+enable_coep: true
+enable_coop: true
+
+# Proxy Configuration
+max_redirects: 5
+timeout: 30.0
+user_agent: "CORS-Proxy-Server/1.0.0"
+enable_http2: true
+enable_compression: true
+
+# Content Type Configuration
+stream_threshold: 1048576 # 1MB
+
+# Logging Configuration
+log_level: "INFO"
+log_format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+log_file: "proxy.log"
+structured_logging: true
+
+# Health Check Configuration
+health_check_path: "/health"
+metrics_path: "/metrics"

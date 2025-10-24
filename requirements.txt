@@ -1,6 +1,6 @@
 fastapi
 hypercorn
-httpx
+httpx[http2]
 python-multipart
 python-jose[cryptography]
 passlib[bcrypt]
@@ -11,3 +11,7 @@ pydantic
 email-validator
 gunicorn
 pytest
+pyyaml
+aiofiles
+# uvloop is Unix-only, install manually if needed on Unix systems
+# uvloop; sys_platform != 'win32'
