@@ -316,8 +316,6 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 # Only for development
 if __name__ == "__main__":
-    import asyncio
-
     from hypercorn.asyncio import serve
     from hypercorn.config import Config
 

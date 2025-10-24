@@ -3,10 +3,10 @@
 
 # Server Configuration
 app_name: "CORS Proxy Server"
-version: "1.0.0"
+version: "1.6.9"
 debug: false
-host: "0.0.0.0"
-port: 8000
+host: "127.0.0.1"
+port: 6969
 
 # Performance & Concurrency
 max_connections: 100
