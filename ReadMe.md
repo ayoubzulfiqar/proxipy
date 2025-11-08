@@ -40,7 +40,7 @@ A **production-ready, high-performance, secure CORS proxy server** built with Fa
 
 ## 📁 Project Structure
 
-```
+```html
 proxypy/
 ├── app/
 │   ├── __init__.py
