@@ -94,7 +94,7 @@ docker-compose up -d
 
 # Or build and run manually
 docker build -t proxipy .
-docker run -p 8000:8000 proxipy
+docker run -p 6969:6969 proxipy
 ```
 
 ### Using Docker
@@ -106,7 +106,7 @@ docker build -t proxipy .
 # Run the container
 docker run -d \
   --name proxipy \
-  -p 8000:8000 \
+  -p 6969:6969 \
   -v $(pwd)/config.yaml:/app/config.yaml \
   proxipy
 ```
@@ -119,7 +119,7 @@ The proxy server supports both environment variables and YAML configuration file
 
 ```bash
 export DEBUG=true
-export PORT=8000
+export PORT=6969
 export RATE_LIMIT_PER_MINUTE=100
 export REDIS_URL=redis://localhost:6379
 export ENABLE_HTTP2=true
@@ -134,7 +134,7 @@ Create a `config.yaml` file:
 app_name: "CORS Proxy Server"
 debug: false
 host: "0.0.0.0"
-port: 8000
+port: 6969
 
 # Performance & Concurrency
 max_connections: 100
@@ -169,7 +169,7 @@ allowed_content_types:
 
 ```javascript
 // Simple GET request
-const response = await fetch('http://localhost:8000/proxy?url=https://api.example.com/data');
+const response = await fetch('http://localhost:6969/proxy?url=https://api.example.com/data');
 const data = await response.json();
 ```
 
@@ -177,7 +177,7 @@ const data = await response.json();
 
 ```javascript
 // POST request with body
-const response = await fetch('http://localhost:8000/proxy', {
+const response = await fetch('http://localhost:6969/proxy', {
     method: 'POST',
     headers: {
         'Content-Type': 'application/json'
@@ -199,13 +199,13 @@ const response = await fetch('http://localhost:8000/proxy', {
 import requests
 
 def proxy_get(target_url):
-    proxy_url = "http://localhost:8000/proxy"
+    proxy_url = "http://localhost:6969/proxy"
     params = {"url": target_url}
     response = requests.get(proxy_url, params=params)
     return response.json()
 
 def proxy_post(target_url, data):
-    proxy_url = "http://localhost:8000/proxy"
+    proxy_url = "http://localhost:6969/proxy"
     payload = {
         "url": target_url,
         "method": "POST",
@@ -308,7 +308,7 @@ docker build -t proxipy:latest .
 # Run with environment variables
 docker run -d \
   --name proxipy \
-  -p 8000:8000 \
+  -p 6969:6969 \
   -e REDIS_URL=redis://redis:6379 \
   -e DEBUG=false \
   --restart unless-stopped \
@@ -323,7 +323,7 @@ server {
     server_name your-domain.com;
 
     location / {
-        proxy_pass http://localhost:8000;
+        proxy_pass http://localhost:6969;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -338,10 +338,10 @@ The proxy server provides comprehensive monitoring:
 
 ```bash
 # Health check
-curl http://localhost:8000/health
+curl http://localhost:6969/health
 
 # Metrics
-curl http://localhost:8000/metrics
+curl http://localhost:6969/metrics
 
 # Check logs
 tail -f proxy.log

@@ -88,3 +88,6 @@ yarn-error.log*
 
 # Redis dumps
 dump.rdb
+app/__pycache__/main.cpython-314.pyc
+app/__pycache__/rate_limiter.cpython-314.pyc
+app/__pycache__/main.cpython-314.pyc
