@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  cors-proxy:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=false
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=your-production-secret-key-change-this
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - proxy-network
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - proxy-network
+
+volumes:
+  redis-data:
+
+networks:
+  proxy-network:
+    driver: bridge

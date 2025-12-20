@@ -1,0 +1,273 @@
+# Proxipy Enhanced Configuration File
+# This file provides comprehensive configuration options for the enhanced proxy server
+
+# Server Configuration
+server:
+  name: "CORS Proxy Server"
+  version: "2.0.0"
+  debug: false
+  host: "127.0.0.1"
+  port: 6969
+
+# Performance & Concurrency
+performance:
+  max_connections: 100
+  max_workers: 4
+  connection_timeout: 30.0
+  read_timeout: 60.0
+  write_timeout: 30.0
+  stream_chunk_size: 8192
+  max_response_size: 104857600 # 100MB
+
+# Security
+security:
+  secret_key: "your-secret-key-change-in-production"
+  allowed_hosts: ["*"]
+  allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"]
+  allowed_headers: ["*"]
+  max_content_length: 52428800 # 50MB
+
+  # Security Headers & Policies
+  enable_csp: true
+  enable_hsts: true
+  enable_https_only: false
+  enable_cors: true
+  enable_corp: true
+  enable_coep: true
+  enable_coop: true
+
+# Rate Limiting
+rate_limiting:
+  enabled: true
+  redis_url: "redis://localhost:6379"
+  rate_limit_per_minute: 60
+  rate_limit_per_hour: 1000
+  rate_limit_burst: 10
+
+# Proxy Configuration
+proxy:
+  max_redirects: 5
+  timeout: 30.0
+  user_agent: "CORS-Proxy-Server/2.0.0"
+  enable_http2: true
+  enable_compression: true
+
+# Content Type Configuration
+content_types:
+  stream_threshold: 1048576 # 1MB
+  binary_content_types:
+    - "application/octet-stream"
+    - "application/pdf"
+    - "application/zip"
+    - "application/gzip"
+    - "application/x-tar"
+    - "application/x-gzip"
+    - "image/jpeg"
+    - "image/png"
+    - "image/gif"
+    - "image/webp"
+    - "image/svg+xml"
+    - "image/bmp"
+    - "image/tiff"
+    - "image/avif"
+    - "video/mp4"
+    - "video/webm"
+    - "video/ogg"
+    - "audio/mpeg"
+    - "audio/wav"
+    - "audio/ogg"
+    - "font/woff"
+    - "font/woff2"
+    - "font/ttf"
+    - "font/otf"
+    - "application/x-font-ttf"
+    - "application/font-woff"
+    - "application/font-woff2"
+  text_content_types:
+    - "application/json"
+    - "application/xml"
+    - "application/javascript"
+    - "text/plain"
+    - "text/html"
+    - "text/css"
+    - "text/javascript"
+    - "text/xml"
+    - "application/x-www-form-urlencoded"
+    - "multipart/form-data"
+    - "application/graphql"
+    - "text/csv"
+    - "text/tab-separated-values"
+    - "application/ld+json"
+    - "application/rss+xml"
+    - "application/atom+xml"
+
+# Logging Configuration
+logging:
+  log_level: "INFO"
+  log_format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  log_file: "proxy.log"
+  structured_logging: true
+
+# Health Check Configuration
+health_check:
+  path: "/health"
+  metrics_path: "/metrics"
+
+# Load Balancer Configuration
+load_balancer:
+  enabled: true
+  algorithm: "round_robin" # Options: round_robin, least_connections, least_response_time, source_ip_hash, uri_hash, header_hash, random, weighted_round_robin, weighted_least_connections
+  session_stickiness: false
+  session_cookie_name: "PROXIPY_SESSION"
+  session_timeout: 3600 # 1 hour
+  enable_circuit_breaker: true
+  circuit_breaker_failure_threshold: 5
+  circuit_breaker_recovery_timeout: 60.0
+
+  # Health Check Configuration for Load Balancer
+  health_check:
+    protocol: "http"
+    path: "/health"
+    port: null # Uses server port if null
+    interval: 30.0
+    timeout: 5.0
+    healthy_threshold: 2
+    unhealthy_threshold: 3
+    expected_status: 200
+
+  # Backend Servers Configuration
+  backend_servers:
+    - host: "backend1.example.com"
+      port: 8080
+      protocol: "http"
+      weight: 1
+      max_connections: 100
+    - host: "backend2.example.com"
+      port: 8080
+      protocol: "http"
+      weight: 2 # Higher weight = more traffic
+      max_connections: 100
+    - host: "backend3.example.com"
+      port: 8080
+      protocol: "https"
+      weight: 1
+      max_connections: 100
+
+# Middleware Configuration
+middleware:
+  enabled: true
+
+  # Rate Limiting Middleware
+  rate_limit:
+    enabled: true
+    requests_per_minute: 60
+    requests_per_hour: 1000
+    burst_size: 10
+    block_duration: 300.0 # 5 minutes
+
+  # Circuit Breaker Middleware
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    recovery_timeout: 60.0
+    half_open_max_requests: 3
+    timeout: 30.0
+
+  # Compression Middleware
+  compression:
+    enabled: true
+    min_size: 1024
+    compression_level: 6
+    supported_encodings: ["gzip", "deflate"]
+
+  # Buffering Middleware
+  buffering:
+    enabled: true
+    max_buffer_size: 1048576 # 1MB
+    buffer_timeout: 5.0
+    enable_streaming: true
+
+  # Header Manipulation Middleware
+  header_manipulation:
+    enabled: true
+    add_headers:
+      "X-Proxy-Version": "2.0.0"
+      "X-Frame-Options": "DENY"
+    remove_headers:
+      - "Server"
+      - "X-Powered-By"
+    modify_headers:
+      "X-Content-Type-Options": "nosniff"
+    strip_prefix: ""
+    redirect_prefix: ""
+
+  # IP Filter Middleware
+  ip_filter:
+    enabled: true
+    whitelist: []
+    blacklist:
+      - "192.168.1.100" # Block specific IP
+    block_private_ips: true
+    block_loopback: true
+
+  # Authentication Middleware
+  authentication:
+    enabled: false
+    basic_auth:
+      "admin": "password123"
+      "user": "userpass"
+    jwt_secret: null
+    jwt_algorithm: "HS256"
+    required_scopes: []
+
+# Protocol Support Configuration
+protocols:
+  http: true
+  https: true
+  websocket: true
+  websockets: true
+  tcp: false
+  udp: false
+  grpc: false
+
+# Advanced Routing Configuration
+routing:
+  enabled: false
+  regex_enabled: false
+  priority_enabled: false
+  path_rewriting_enabled: false
+
+# Metrics & Monitoring Configuration
+metrics:
+  enabled: true
+  prometheus_enabled: false
+  haproxy_style_enabled: true
+
+# Authentication Configuration
+authentication:
+  basic_enabled: false
+  basic_users:
+    "admin": "password123"
+    "user": "userpass"
+  jwt_enabled: false
+  jwt_secret: null
+  jwt_algorithm: "HS256"
+  client_cert_enabled: false
+
+# Fingerprint Spoofing Configuration
+fingerprint_spoofing:
+  enabled: false
+  ja4_enabled: false
+  ja4h_enabled: false
+  chrome_matching: false
+
+# Blocked Domains (for security)
+blocked_domains:
+  - "localhost"
+  - "127.0.0.1"
+  - "192.168.0.0/16"
+  - "10.0.0.0/8"
+  - "172.16.0.0/12"
+  - "169.254.0.0/16"
+  - "::1"
+  - "0.0.0.0/8"
