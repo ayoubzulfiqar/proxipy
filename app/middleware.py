@@ -397,6 +397,24 @@ class CompressionMiddleware(BaseMiddleware):
             ):
                 return
 
+        # Check content type for compression eligibility
+        content_type = response.headers.get("content-type", "")
+        if not content_type:
+            return
+
+        # Only compress text-based content types
+        text_content_types = [
+            "text/",
+            "application/json",
+            "application/xml",
+            "application/javascript",
+            "application/css",
+            "application/x-javascript",
+        ]
+
+        if not any(ct in content_type for ct in text_content_types):
+            return
+
         # Compress response
         if hasattr(response, "body"):
             content = response.body

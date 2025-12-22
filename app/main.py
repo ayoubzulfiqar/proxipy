@@ -12,9 +12,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from slowapi.errors import RateLimitExceeded
 
-from .config import settings
-from .load_balancer import initialize_load_balancer, load_balancer
-from .middleware import (
+from app.config import settings
+from app.load_balancer import initialize_load_balancer, load_balancer
+from app.middleware import (
     AuthenticationConfig,
     BufferingConfig,
     CircuitBreakerConfig,
@@ -24,16 +24,21 @@ from .middleware import (
     get_middleware_pipeline,
     initialize_default_middleware,
 )
-from .model import HealthResponse, ProxyRequest
-from .rate_limiter import get_rate_limiter, rate_limit_exceeded_handler
-from .security import security
-from .utils import proxy_utils
+from app.model import HealthResponse, ProxyRequest
+from app.rate_limiter import get_rate_limiter, rate_limit_exceeded_handler
+from app.security import security
+from app.utils import proxy_utils
 
 # Import websockets with error handling
 try:
     import websockets
+    from fastapi import WebSocket, WebSocketDisconnect
+
+    WEBSOCKETS_AVAILABLE = True
 except ImportError:
     websockets = None
+    WebSocketDisconnect = None
+    WEBSOCKETS_AVAILABLE = False
 
 # Suppress slowapi deprecation warnings
 warnings.filterwarnings(
@@ -164,7 +169,7 @@ async def lifespan(_: FastAPI):
 
     # Add middleware based on configuration
     if settings.MIDDLEWARE_RATE_LIMIT_ENABLED:
-        from .middleware import RateLimitMiddleware
+        from app.middleware import RateLimitMiddleware
 
         pipeline.add_middleware(
             RateLimitMiddleware(
@@ -179,7 +184,7 @@ async def lifespan(_: FastAPI):
         )
 
     if settings.MIDDLEWARE_CIRCUIT_BREAKER_ENABLED:
-        from .middleware import CircuitBreakerMiddleware
+        from app.middleware import CircuitBreakerMiddleware
 
         pipeline.add_middleware(
             CircuitBreakerMiddleware(
@@ -194,7 +199,7 @@ async def lifespan(_: FastAPI):
         )
 
     if settings.MIDDLEWARE_COMPRESSION_ENABLED:
-        from .middleware import CompressionMiddleware
+        from app.middleware import CompressionMiddleware
 
         pipeline.add_middleware(
             CompressionMiddleware(
@@ -208,7 +213,7 @@ async def lifespan(_: FastAPI):
         )
 
     if settings.MIDDLEWARE_BUFFERING_ENABLED:
-        from .middleware import BufferingMiddleware
+        from app.middleware import BufferingMiddleware
 
         pipeline.add_middleware(
             BufferingMiddleware(
@@ -222,7 +227,7 @@ async def lifespan(_: FastAPI):
         )
 
     if settings.MIDDLEWARE_IP_FILTER_ENABLED:
-        from .middleware import IPFilterMiddleware
+        from app.middleware import IPFilterMiddleware
 
         pipeline.add_middleware(
             IPFilterMiddleware(
@@ -237,7 +242,7 @@ async def lifespan(_: FastAPI):
         )
 
     if settings.MIDDLEWARE_AUTHENTICATION_ENABLED:
-        from .middleware import AuthenticationMiddleware
+        from app.middleware import AuthenticationMiddleware
 
         pipeline.add_middleware(
             AuthenticationMiddleware(
@@ -252,7 +257,7 @@ async def lifespan(_: FastAPI):
         )
 
     # Initialize rate limiter
-    from .rate_limiter import initialize_redis
+    from app.rate_limiter import initialize_redis
 
     await initialize_redis()
 
@@ -622,6 +627,64 @@ async def proxy_options():
     return JSONResponse(content={"message": "OK"})
 
 
+@app.websocket("/websocket")
+async def websocket_proxy(websocket: WebSocket):
+    """WebSocket proxy endpoint"""
+    if not WEBSOCKETS_AVAILABLE:
+        await websocket.close(code=1000, reason="WebSocket support not available")
+        return
+
+    await websocket.accept()
+
+    try:
+        while True:
+            # Receive message from client
+            data = await websocket.receive_text()
+
+            # Here you would implement WebSocket proxying logic
+            # For now, just echo back with a prefix
+            await websocket.send_text(f"Proxied: {data}")
+
+    except Exception as e:
+        if WebSocketDisconnect and isinstance(e, WebSocketDisconnect):
+            logger.info("WebSocket disconnected")
+        else:
+            logger.error(f"WebSocket error: {e}")
+            await websocket.close(code=1011, reason=str(e))
+
+
+@app.get("/logs")
+async def get_logs(request: Request):
+    """Logs endpoint for accessing server logs"""
+    # Read the log file
+    try:
+        with open("proxy.log", "r", encoding="utf-8") as f:
+            logs = f.read()
+
+        # Return logs as plain text
+        response = Response(
+            content=logs,
+            media_type="text/plain",
+            headers={
+                "Content-Disposition": "attachment; filename=proxy.log",
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
+        return security.add_security_headers(response)
+
+    except FileNotFoundError:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "Log file not found"},
+        )
+    except Exception as exc:
+        logger.error(f"Error reading logs: {exc}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Failed to read logs"},
+        )
+
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     """Custom HTTP exception handler"""
@@ -642,4 +705,5 @@ if __name__ == "__main__":
     config.use_reloader = settings.DEBUG
     config.workers = 4
 
+    asyncio.run(serve(app, config))  # type: ignore
     asyncio.run(serve(app, config))  # type: ignore

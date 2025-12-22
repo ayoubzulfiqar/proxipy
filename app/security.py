@@ -74,6 +74,19 @@ class EnhancedSecurityMiddleware:
                 status_code=400, detail="URL contains directory traversal"
             )
 
+        # Check for invalid ports
+        try:
+            if parsed_url.port is not None:
+                if parsed_url.port == 0:
+                    logger.warning(f"Invalid port 0 in URL: {target_url}")
+                    raise HTTPException(status_code=400, detail="Port 0 is not allowed")
+                if parsed_url.port > 65535:
+                    logger.warning(f"Invalid port > 65535 in URL: {target_url}")
+                    raise HTTPException(status_code=400, detail="Port number too large")
+        except ValueError as e:
+            logger.warning(f"Invalid port in URL: {target_url} - {str(e)}")
+            raise HTTPException(status_code=400, detail="Invalid port number") from e
+
         # Check for private IP access
         self._check_private_ip_access(parsed_url.netloc)
 

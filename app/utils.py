@@ -51,11 +51,37 @@ class EnhancedProxyUtils:
                 max_keepalive_connections=20, max_connections=settings.MAX_CONNECTIONS
             )
             timeout = httpx.Timeout(
+                timeout=settings.TIMEOUT,
                 connect=settings.CONNECTION_TIMEOUT,
                 read=settings.READ_TIMEOUT,
                 write=settings.WRITE_TIMEOUT,
                 pool=settings.TIMEOUT,
             )
+
+            # Prepare headers with fingerprint spoofing
+            headers = {}
+
+            # Use fingerprint spoofing if enabled
+            if settings.FINGERPRINT_SPOOFING_ENABLED:
+                headers.update(
+                    {
+                        "User-Agent": settings.FINGERPRINT_SPOOFING_USER_AGENT,
+                        "Accept": settings.FINGERPRINT_SPOOFING_ACCEPT,
+                        "Accept-Encoding": settings.FINGERPRINT_SPOOFING_ACCEPT_ENCODING,
+                        "Accept-Language": settings.FINGERPRINT_SPOOFING_ACCEPT_LANGUAGE,
+                        "DNT": settings.FINGERPRINT_SPOOFING_DNT,
+                        "Upgrade-Insecure-Requests": settings.FINGERPRINT_SPOOFING_UPGRADE_INSECURE_REQUESTS,
+                    }
+                )
+            else:
+                headers.update(
+                    {
+                        "User-Agent": settings.USER_AGENT,
+                        "Accept-Encoding": "gzip, deflate"
+                        if settings.ENABLE_COMPRESSION
+                        else "identity",
+                    }
+                )
 
             self._client = httpx.AsyncClient(
                 limits=limits,
@@ -63,12 +89,7 @@ class EnhancedProxyUtils:
                 follow_redirects=True,
                 max_redirects=settings.MAX_REDIRECTS,
                 http2=settings.ENABLE_HTTP2,
-                headers={
-                    "User-Agent": settings.USER_AGENT,
-                    "Accept-Encoding": "gzip, deflate"
-                    if settings.ENABLE_COMPRESSION
-                    else "identity",
-                },
+                headers=headers,
             )
         return self._client
 
@@ -166,6 +187,7 @@ class EnhancedProxyUtils:
                     headers=request_headers,
                     content=body,
                     timeout=httpx.Timeout(
+                        timeout=settings.TIMEOUT,
                         connect=settings.CONNECTION_TIMEOUT,
                         read=settings.READ_TIMEOUT,
                         write=settings.WRITE_TIMEOUT,

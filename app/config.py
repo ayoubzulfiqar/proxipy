@@ -28,9 +28,9 @@ class Settings(BaseSettings):
     )
 
     # Server Configuration
-    APP_NAME: str = "CORS Proxy Server"
-    VERSION: str = "2.0.0"
-    DEBUG: bool = False
+    APP_NAME: str = "Proxipy"
+    VERSION: str = "2.5.8"
+    DEBUG: bool = True
     HOST: str = "0.0.0.0"
     PORT: int = 8000
 
@@ -77,9 +77,21 @@ class Settings(BaseSettings):
     # Proxy Configuration
     MAX_REDIRECTS: int = 5
     TIMEOUT: float = 30.0
-    USER_AGENT: str = "CORS-Proxy-Server/2.0.0"
+    USER_AGENT: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     ENABLE_HTTP2: bool = True
     ENABLE_COMPRESSION: bool = True
+
+    # Fingerprint Spoofing Configuration
+    FINGERPRINT_SPOOFING_ENABLED: bool = True
+    FINGERPRINT_SPOOFING_JA4_ENABLED: bool = True
+    FINGERPRINT_SPOOFING_JA4H_ENABLED: bool = True
+    FINGERPRINT_SPOOFING_CHROME_MATCHING: bool = True
+    FINGERPRINT_SPOOFING_USER_AGENT: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    FINGERPRINT_SPOOFING_ACCEPT: str = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8"
+    FINGERPRINT_SPOOFING_ACCEPT_ENCODING: str = "gzip, deflate, br"
+    FINGERPRINT_SPOOFING_ACCEPT_LANGUAGE: str = "en-US,en;q=0.9"
+    FINGERPRINT_SPOOFING_DNT: str = "1"
+    FINGERPRINT_SPOOFING_UPGRADE_INSECURE_REQUESTS: str = "1"
 
     # Content Type Configuration
     STREAM_THRESHOLD: int = 1024 * 1024  # 1MB - files larger than this will be streamed
@@ -209,7 +221,7 @@ class Settings(BaseSettings):
     METRICS_PATH: str = "/metrics"
 
     # Load Balancer Configuration
-    LOAD_BALANCER_ENABLED: bool = False
+    LOAD_BALANCER_ENABLED: bool = True
     LOAD_BALANCER_ALGORITHM: LoadBalancingAlgorithm = LoadBalancingAlgorithm.ROUND_ROBIN
     LOAD_BALANCER_SESSION_STICKINESS: bool = False
     LOAD_BALANCER_SESSION_COOKIE_NAME: str = "PROXIPY_SESSION"
@@ -229,7 +241,26 @@ class Settings(BaseSettings):
     LOAD_BALANCER_HEALTH_CHECK_EXPECTED_STATUS: int = 200
 
     # Backend Servers Configuration
-    BACKEND_SERVERS: List[BackendServer] = Field(default_factory=list)
+    BACKEND_SERVERS: List[BackendServer] = Field(
+        default_factory=lambda: [
+            BackendServer(
+                host="httpbin.org",
+                port=443,
+                protocol="https",
+                weight=1,
+                max_connections=100,
+                server_id="httpbin_server",
+            ),
+            BackendServer(
+                host="httpbingo.org",
+                port=443,
+                protocol="https",
+                weight=1,
+                max_connections=100,
+                server_id="httpbingo_server",
+            ),
+        ]
+    )
 
     # Middleware Configuration
     MIDDLEWARE_ENABLED: bool = True
@@ -299,8 +330,10 @@ class Settings(BaseSettings):
     METRICS_HAPROXY_STYLE_ENABLED: bool = True
 
     # Authentication Configuration
-    AUTHENTICATION_BASIC_ENABLED: bool = False
-    AUTHENTICATION_BASIC_USERS: dict = Field(default_factory=dict)
+    AUTHENTICATION_BASIC_ENABLED: bool = True
+    AUTHENTICATION_BASIC_USERS: dict = Field(
+        default_factory=lambda: {"admin": "password123", "user": "user123"}
+    )
     AUTHENTICATION_JWT_ENABLED: bool = False
     AUTHENTICATION_JWT_SECRET: Optional[str] = None
     AUTHENTICATION_JWT_ALGORITHM: str = "HS256"
