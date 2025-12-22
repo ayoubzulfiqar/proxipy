@@ -3,11 +3,11 @@
 
 # Server Configuration
 server:
-  name: "CORS Proxy Server"
-  version: "2.0.0"
+  name: "Proxipy"
+  version: "2.9.1"
   debug: false
   host: "127.0.0.1"
-  port: 6969
+  port: 8000
 
 # Performance & Concurrency
 performance:
@@ -48,7 +48,7 @@ rate_limiting:
 proxy:
   max_redirects: 5
   timeout: 30.0
-  user_agent: "CORS-Proxy-Server/2.0.0"
+  user_agent: "CORS-Proxy-Server/2.0.0" # Change tp Chrome Later
   enable_http2: true
   enable_compression: true
 

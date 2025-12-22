@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     VERSION: str = "2.5.8"
     DEBUG: bool = True
     HOST: str = "0.0.0.0"
-    PORT: int = 8000
+    PORT: int = 8080
 
     # Performance & Concurrency
     MAX_CONNECTIONS: int = 100

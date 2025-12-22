@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from app.app import app
 from app.config import settings
 from app.load_balancer import (
     BackendServer,
@@ -10,7 +11,6 @@ from app.load_balancer import (
     LoadBalancingAlgorithm,
     ServerState,
 )
-from app.main import app
 from app.middleware import (
     AuthenticationMiddleware,
     BufferingMiddleware,

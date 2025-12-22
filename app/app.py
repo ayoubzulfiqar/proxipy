@@ -695,8 +695,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     return security.add_security_headers(response)
 
 
-# Only for development
-if __name__ == "__main__":
+def Proxipiper():
     from hypercorn.asyncio import serve
     from hypercorn.config import Config
 
@@ -705,5 +704,4 @@ if __name__ == "__main__":
     config.use_reloader = settings.DEBUG
     config.workers = 4
 
-    asyncio.run(serve(app, config))  # type: ignore
     asyncio.run(serve(app, config))  # type: ignore
