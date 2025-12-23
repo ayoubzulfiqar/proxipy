@@ -228,5 +228,25 @@ def test_configuration_loading():
     assert settings.should_stream(2000000, "application/pdf")  # 2MB should stream
 
 
+def test_localhost_configuration():
+    """Test localhost configuration loading"""
+    import os
+
+    from app.config import settings
+
+    # Save original config file
+    original_config = "config.yaml"
+    localhost_config = "config-localhost.yaml"
+
+    if os.path.exists(localhost_config):
+        # Test loading localhost config
+        settings.load_config_file(localhost_config)
+        assert settings.DEBUG == True
+        assert settings.HOST == "127.0.0.1"
+        assert settings.LOAD_BALANCER_ENABLED == False
+        assert settings.MIDDLEWARE_RATE_LIMIT_ENABLED == False
+
+
 if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
     pytest.main([__file__, "-v"])

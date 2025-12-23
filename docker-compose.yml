@@ -4,11 +4,12 @@ services:
   cors-proxy:
     build: .
     ports:
-      - "8000:8000"
+      - "8080:8080"
     environment:
       - DEBUG=false
       - REDIS_URL=redis://redis:6379
       - SECRET_KEY=your-production-secret-key-change-this
+      - PORT=8080
     depends_on:
       - redis
     restart: unless-stopped

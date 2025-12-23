@@ -335,12 +335,18 @@ class TestEnhancedEndpoints:
         backend = data["backend"]
         assert isinstance(backend, list)
 
-    @patch("app.main.load_balancer")
-    def test_proxy_with_load_balancer(self, mock_lb, client):
+    @patch("app.app.load_balancer")
+    @patch("app.app.settings")
+    def test_proxy_with_load_balancer(self, mock_settings, mock_lb, client):
         """Test proxy endpoint with load balancer enabled"""
+        # Mock settings
+        mock_settings.LOAD_BALANCER_ENABLED = True
+
         # Mock load balancer
         mock_lb_instance = Mock()
         mock_lb_instance.select_server = AsyncMock(return_value=None)
+        mock_lb_instance.record_success = AsyncMock()
+        mock_lb_instance.record_failure = AsyncMock()
         mock_lb.return_value = mock_lb_instance
 
         # Test that load balancer is used when enabled

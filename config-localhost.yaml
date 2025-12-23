@@ -1,60 +1,60 @@
-# Proxipy Enhanced Configuration File
-# This file provides comprehensive configuration options for the enhanced proxy server
+# Proxipy Localhost Configuration for Local Testing
+# This configuration is optimized for local development and testing
 
 # Server Configuration
 server:
-  name: "Proxipy"
+  name: "Proxipy Localhost"
   version: "2.9.1"
-  debug: false
-  host: "127.0.0.1"
+  debug: true # Enable debug mode for local testing
+  host: "127.0.0.1" # Bind to localhost only
   port: 6969
 
-# Performance & Concurrency
+# Performance & Concurrency (Reduced for local testing)
 performance:
-  max_connections: 100
-  max_workers: 4
-  connection_timeout: 30.0
-  read_timeout: 60.0
-  write_timeout: 30.0
-  stream_chunk_size: 8192
-  max_response_size: 104857600 # 100MB
+  max_connections: 50 # Lower for local testing
+  max_workers: 2 # Fewer workers for local testing
+  connection_timeout: 10.0 # Shorter timeouts for local testing
+  read_timeout: 30.0
+  write_timeout: 10.0
+  stream_chunk_size: 4096 # Smaller chunks for local testing
+  max_response_size: 50000000 # 50MB
 
-# Security
+# Security (Relaxed for local testing)
 security:
-  secret_key: "your-secret-key-change-in-production"
-  allowed_hosts: ["*"]
+  secret_key: "localhost-secret-key-for-development-only"
+  allowed_hosts: ["*"] # Allow all hosts for local testing
   allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"]
   allowed_headers: ["*"]
-  max_content_length: 52428800 # 50MB
+  max_content_length: 25000000 # 25MB for local testing
 
-  # Security Headers & Policies
-  enable_csp: true
-  enable_hsts: true
+  # Security Headers & Policies (Relaxed for local testing)
+  enable_csp: false # Disable CSP for local testing
+  enable_hsts: false # Disable HSTS for local testing
   enable_https_only: false
   enable_cors: true
-  enable_corp: true
-  enable_coep: true
-  enable_coop: true
+  enable_corp: false # Disable for local testing
+  enable_coep: false # Disable for local testing
+  enable_coop: false # Disable for local testing
 
-# Rate Limiting
+# Rate Limiting (Relaxed for local testing)
 rate_limiting:
-  enabled: true
+  enabled: false # Disable rate limiting for local testing
   redis_url: "redis://localhost:6379"
-  rate_limit_per_minute: 60
-  rate_limit_per_hour: 1000
-  rate_limit_burst: 10
+  rate_limit_per_minute: 1000 # Higher limits for local testing
+  rate_limit_per_hour: 5000
+  rate_limit_burst: 50
 
 # Proxy Configuration
 proxy:
-  max_redirects: 5
-  timeout: 30.0
-  user_agent: "CORS-Proxy-Server/2.0.0" # Change tp Chrome Later
+  max_redirects: 3 # Fewer redirects for local testing
+  timeout: 10.0 # Shorter timeout for local testing
+  user_agent: "Proxipy-Localhost/2.0.0"
   enable_http2: true
   enable_compression: true
 
 # Content Type Configuration
 content_types:
-  stream_threshold: 1048576 # 1MB
+  stream_threshold: 524288 # 512KB for local testing
   binary_content_types:
     - "application/octet-stream"
     - "application/pdf"
@@ -101,11 +101,11 @@ content_types:
     - "application/rss+xml"
     - "application/atom+xml"
 
-# Logging Configuration
+# Logging Configuration (Enhanced for local testing)
 logging:
-  log_level: "INFO"
+  log_level: "DEBUG" # More verbose logging for local testing
   log_format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-  log_file: "proxy.log"
+  log_file: "proxy-localhost.log"
   structured_logging: true
 
 # Health Check Configuration
@@ -113,14 +113,14 @@ health_check:
   path: "/health"
   metrics_path: "/metrics"
 
-# Load Balancer Configuration
+# Load Balancer Configuration (Disabled for local testing)
 load_balancer:
-  enabled: true
-  algorithm: "round_robin" # Options: round_robin, least_connections, least_response_time, source_ip_hash, uri_hash, header_hash, random, weighted_round_robin, weighted_least_connections
+  enabled: false # Disable load balancer for local testing
+  algorithm: "round_robin"
   session_stickiness: false
   session_cookie_name: "PROXIPY_SESSION"
-  session_timeout: 3600 # 1 hour
-  enable_circuit_breaker: true
+  session_timeout: 3600
+  enable_circuit_breaker: false
   circuit_breaker_failure_threshold: 5
   circuit_breaker_recovery_timeout: 60.0
 
@@ -128,94 +128,85 @@ load_balancer:
   health_check:
     protocol: "http"
     path: "/health"
-    port: null # Uses server port if null
+    port: null
     interval: 30.0
     timeout: 5.0
     healthy_threshold: 2
     unhealthy_threshold: 3
     expected_status: 200
 
-  # Backend Servers Configuration
+  # Backend Servers Configuration (Local test servers)
   backend_servers:
-    - host: "backend1.example.com"
-      port: 8080
-      protocol: "http"
-      weight: 1
-      max_connections: 100
-    - host: "backend2.example.com"
-      port: 8080
-      protocol: "http"
-      weight: 2 # Higher weight = more traffic
-      max_connections: 100
-    - host: "backend3.example.com"
-      port: 8080
+    - host: "httpbin.org"
+      port: 443
       protocol: "https"
       weight: 1
-      max_connections: 100
+      max_connections: 50
+    - host: "httpbingo.org"
+      port: 443
+      protocol: "https"
+      weight: 1
+      max_connections: 50
 
-# Middleware Configuration
+# Middleware Configuration (Simplified for local testing)
 middleware:
   enabled: true
 
-  # Rate Limiting Middleware
+  # Rate Limiting Middleware (Disabled for local testing)
   rate_limit:
-    enabled: true
-    requests_per_minute: 60
-    requests_per_hour: 1000
-    burst_size: 10
-    block_duration: 300.0 # 5 minutes
+    enabled: false
+    requests_per_minute: 1000
+    requests_per_hour: 5000
+    burst_size: 50
+    block_duration: 300.0
 
-  # Circuit Breaker Middleware
+  # Circuit Breaker Middleware (Disabled for local testing)
   circuit_breaker:
-    enabled: true
+    enabled: false
     failure_threshold: 5
     recovery_timeout: 60.0
     half_open_max_requests: 3
     timeout: 30.0
 
-  # Compression Middleware
+  # Compression Middleware (Enabled for local testing)
   compression:
     enabled: true
-    min_size: 1024
+    min_size: 512 # Smaller threshold for local testing
     compression_level: 6
     supported_encodings: ["gzip", "deflate"]
 
-  # Buffering Middleware
+  # Buffering Middleware (Enabled for local testing)
   buffering:
     enabled: true
-    max_buffer_size: 1048576 # 1MB
-    buffer_timeout: 5.0
+    max_buffer_size: 524288 # 512KB for local testing
+    buffer_timeout: 3.0 # Shorter timeout for local testing
     enable_streaming: true
 
-  # Header Manipulation Middleware
+  # Header Manipulation Middleware (Minimal for local testing)
   header_manipulation:
     enabled: true
     add_headers:
-      "X-Proxy-Version": "2.0.0"
-      "X-Frame-Options": "DENY"
+      "X-Proxy-Version": "2.0.0-localhost"
+      "X-Environment": "development"
     remove_headers:
       - "Server"
-      - "X-Powered-By"
     modify_headers:
       "X-Content-Type-Options": "nosniff"
     strip_prefix: ""
     redirect_prefix: ""
 
-  # IP Filter Middleware
+  # IP Filter Middleware (Disabled for local testing)
   ip_filter:
-    enabled: true
+    enabled: false # Disable IP filtering for local testing
     whitelist: []
-    blacklist:
-      - "192.168.1.100" # Block specific IP
-    block_private_ips: true
-    block_loopback: true
+    blacklist: []
+    block_private_ips: false
+    block_loopback: false
 
-  # Authentication Middleware
+  # Authentication Middleware (Disabled for local testing)
   authentication:
     enabled: false
-    basic_auth:
-      "admin": "password123"
-      "user": "userpass"
+    basic_auth: {}
     jwt_secret: null
     jwt_algorithm: "HS256"
     required_scopes: []
@@ -243,31 +234,28 @@ metrics:
   prometheus_enabled: false
   haproxy_style_enabled: true
 
-# Authentication Configuration
+# Authentication Configuration (Disabled for local testing)
 authentication:
   basic_enabled: false
-  basic_users:
-    "admin": "password123"
-    "user": "userpass"
+  basic_users: {}
   jwt_enabled: false
   jwt_secret: null
   jwt_algorithm: "HS256"
   client_cert_enabled: false
 
-# Fingerprint Spoofing Configuration
+# Fingerprint Spoofing Configuration (Disabled for local testing)
 fingerprint_spoofing:
   enabled: false
   ja4_enabled: false
   ja4h_enabled: false
   chrome_matching: false
 
-# Blocked Domains (for security)
+# Blocked Domains (Relaxed for local testing)
 blocked_domains:
-  - "localhost"
-  - "127.0.0.1"
   - "192.168.0.0/16"
   - "10.0.0.0/8"
   - "172.16.0.0/12"
   - "169.254.0.0/16"
-  - "::1"
   - "0.0.0.0/8"
+  # Removed localhost and 127.0.0.1 for local testing
+  # Removed ::1 for local testing

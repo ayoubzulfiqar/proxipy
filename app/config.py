@@ -82,10 +82,10 @@ class Settings(BaseSettings):
     ENABLE_COMPRESSION: bool = True
 
     # Fingerprint Spoofing Configuration
-    FINGERPRINT_SPOOFING_ENABLED: bool = True
-    FINGERPRINT_SPOOFING_JA4_ENABLED: bool = True
-    FINGERPRINT_SPOOFING_JA4H_ENABLED: bool = True
-    FINGERPRINT_SPOOFING_CHROME_MATCHING: bool = True
+    FINGERPRINT_SPOOFING_ENABLED: bool = False
+    FINGERPRINT_SPOOFING_JA4_ENABLED: bool = False
+    FINGERPRINT_SPOOFING_JA4H_ENABLED: bool = False
+    FINGERPRINT_SPOOFING_CHROME_MATCHING: bool = False
     FINGERPRINT_SPOOFING_USER_AGENT: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     FINGERPRINT_SPOOFING_ACCEPT: str = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8"
     FINGERPRINT_SPOOFING_ACCEPT_ENCODING: str = "gzip, deflate, br"

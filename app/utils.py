@@ -27,8 +27,17 @@ class EnhancedProxyUtils:
         # Ensure URL is properly formatted
         parsed = urlparse(url)
         if not parsed.scheme:
+            # If no scheme, assume https for security
             url = "https://" + url
             parsed = urlparse(url)
+
+        # Handle relative URLs that start with /
+        if parsed.scheme and not parsed.netloc and url.startswith("/"):
+            # This is a relative URL - we need to add a base domain
+            # For security, we'll reject these and let the caller handle them
+            raise ValueError(
+                f"Relative URL detected: {url}. Please provide a full URL with domain."
+            )
 
         # Reconstruct URL without fragments
         sanitized = urlunparse(

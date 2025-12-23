@@ -117,6 +117,22 @@ class AuthenticationConfig(MiddlewareConfig):
     required_scopes: List[str] = field(default_factory=list)
 
 
+@dataclass
+class FingerprintSpoofingConfig(MiddlewareConfig):
+    """Fingerprint spoofing configuration"""
+
+    enabled: bool = False
+    ja4_enabled: bool = False
+    ja4h_enabled: bool = False
+    chrome_matching: bool = False
+    user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    accept: str = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8"
+    accept_encoding: str = "gzip, deflate, br"
+    accept_language: str = "en-US,en;q=0.9"
+    dnt: str = "1"
+    upgrade_insecure_requests: str = "1"
+
+
 class MiddlewareContext:
     """Context object for middleware communication"""
 

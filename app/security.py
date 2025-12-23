@@ -51,8 +51,25 @@ class EnhancedSecurityMiddleware:
         # Parse and validate URL
         try:
             parsed_url = urlparse(target_url)
+
+            # Handle relative URLs by adding a default scheme
+            if not parsed_url.scheme:
+                # If no scheme, assume https for security
+                # Handle relative URLs that start with / by treating them as invalid
+                if target_url.startswith("/"):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Invalid URL format - relative URLs starting with '/' are not supported. Please provide a full URL with scheme and domain.",
+                    )
+
+                target_url = f"https://{target_url}"
+                parsed_url = urlparse(target_url)
+
             if not parsed_url.scheme or not parsed_url.netloc:
-                raise HTTPException(status_code=400, detail="Invalid URL format")
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid URL format - must include scheme (http/https) and domain",
+                )
         except Exception as exc:
             logger.warning(f"Invalid URL format: {target_url}")
             raise HTTPException(status_code=400, detail="Invalid URL format") from exc
@@ -132,6 +149,10 @@ class EnhancedSecurityMiddleware:
     def _check_private_ip_access(self, domain: str) -> None:
         """Prevent access to private IP ranges"""
         try:
+            # Remove port if present
+            domain = domain.split(":")[0]
+
+            # Check if domain is an IP address
             ip = ipaddress.ip_address(domain)
             if ip.is_private or ip.is_loopback or ip.is_link_local:
                 logger.warning(f"Private IP access attempt: {domain}")
@@ -140,7 +161,8 @@ class EnhancedSecurityMiddleware:
                 )
         except ValueError:
             # Not an IP address, check for localhost variations
-            if domain.lower() in ["localhost", "127.0.0.1", "::1"]:
+            domain_lower = domain.lower().strip()
+            if domain_lower in ["localhost", "127.0.0.1", "::1", ""]:
                 logger.warning(f"Localhost access attempt: {domain}")
                 raise HTTPException(
                     status_code=403, detail="Access to localhost is not allowed"
