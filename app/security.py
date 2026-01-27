@@ -8,6 +8,7 @@ from fastapi import HTTPException, Request
 from fastapi.responses import Response
 
 from .config import settings
+from .content import BINARY_CONTENT_TYPES, TEXT_CONTENT_TYPES
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 class EnhancedSecurityMiddleware:
     def __init__(self):
         self.blocked_domains = set(settings.BLOCKED_DOMAINS)
-        self.allowed_content_types = set(settings.ALLOWED_CONTENT_TYPES)
+        self.allowed_content_types = set(BINARY_CONTENT_TYPES ) and set(TEXT_CONTENT_TYPES)
         self.suspicious_patterns = [
             r"\.\./",  # Directory traversal
             r"\.\.\\",  # Windows directory traversal

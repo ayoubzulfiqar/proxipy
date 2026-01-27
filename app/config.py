@@ -5,6 +5,7 @@ import yaml
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from .content import BINARY_CONTENT_TYPES, TEXT_CONTENT_TYPES
 from .load_balancer import (
     BackendServer,
     HealthCheckConfig,
@@ -82,10 +83,10 @@ class Settings(BaseSettings):
     ENABLE_COMPRESSION: bool = True
 
     # Fingerprint Spoofing Configuration
-    FINGERPRINT_SPOOFING_ENABLED: bool = False
-    FINGERPRINT_SPOOFING_JA4_ENABLED: bool = False
-    FINGERPRINT_SPOOFING_JA4H_ENABLED: bool = False
-    FINGERPRINT_SPOOFING_CHROME_MATCHING: bool = False
+    # FINGERPRINT_SPOOFING_ENABLED: bool = False
+    # FINGERPRINT_SPOOFING_JA4_ENABLED: bool = False
+    # FINGERPRINT_SPOOFING_JA4H_ENABLED: bool = False
+    # FINGERPRINT_SPOOFING_CHROME_MATCHING: bool = False
     FINGERPRINT_SPOOFING_USER_AGENT: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     FINGERPRINT_SPOOFING_ACCEPT: str = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8"
     FINGERPRINT_SPOOFING_ACCEPT_ENCODING: str = "gzip, deflate, br"
@@ -109,106 +110,106 @@ class Settings(BaseSettings):
     ]
 
     # Enhanced Content Types - Binary (Streamed)
-    BINARY_CONTENT_TYPES: List[str] = [
-        "application/octet-stream",
-        "application/pdf",
-        "application/zip",
-        "application/gzip",
-        "application/x-tar",
-        "application/x-gzip",
-        "image/jpeg",
-        "image/png",
-        "image/gif",
-        "image/webp",
-        "image/svg+xml",
-        "image/bmp",
-        "image/tiff",
-        "image/avif",
-        "video/mp4",
-        "video/webm",
-        "video/ogg",
-        "audio/mpeg",
-        "audio/wav",
-        "audio/ogg",
-        "font/woff",
-        "font/woff2",
-        "font/ttf",
-        "font/otf",
-        "application/x-font-ttf",
-        "application/font-woff",
-        "application/font-woff2",
-    ]
+    # BINARY_CONTENT_TYPES: List[str] = [
+    #     "application/octet-stream",
+    #     "application/pdf",
+    #     "application/zip",
+    #     "application/gzip",
+    #     "application/x-tar",
+    #     "application/x-gzip",
+    #     "image/jpeg",
+    #     "image/png",
+    #     "image/gif",
+    #     "image/webp",
+    #     "image/svg+xml",
+    #     "image/bmp",
+    #     "image/tiff",
+    #     "image/avif",
+    #     "video/mp4",
+    #     "video/webm",
+    #     "video/ogg",
+    #     "audio/mpeg",
+    #     "audio/wav",
+    #     "audio/ogg",
+    #     "font/woff",
+    #     "font/woff2",
+    #     "font/ttf",
+    #     "font/otf",
+    #     "application/x-font-ttf",
+    #     "application/font-woff",
+    #     "application/font-woff2",
+    # ]
 
     # Text Content Types (Buffered)
-    TEXT_CONTENT_TYPES: List[str] = [
-        "application/json",
-        "application/xml",
-        "application/javascript",
-        "text/plain",
-        "text/html",
-        "text/css",
-        "text/javascript",
-        "text/xml",
-        "application/x-www-form-urlencoded",
-        "multipart/form-data",
-        "application/graphql",
-        "text/csv",
-        "text/tab-separated-values",
-        "application/ld+json",
-        "application/rss+xml",
-        "application/atom+xml",
-    ]
+    # TEXT_CONTENT_TYPES: List[str] = [
+    #     "application/json",
+    #     "application/xml",
+    #     "application/javascript",
+    #     "text/plain",
+    #     "text/html",
+    #     "text/css",
+    #     "text/javascript",
+    #     "text/xml",
+    #     "application/x-www-form-urlencoded",
+    #     "multipart/form-data",
+    #     "application/graphql",
+    #     "text/csv",
+    #     "text/tab-separated-values",
+    #     "application/ld+json",
+    #     "application/rss+xml",
+    #     "application/atom+xml",
+    # ]
 
     # All Allowed Content Types
-    ALLOWED_CONTENT_TYPES: List[str] = Field(
-        default_factory=lambda: [
-            # Text types
-            "application/json",
-            "application/xml",
-            "application/javascript",
-            "text/plain",
-            "text/html",
-            "text/css",
-            "text/javascript",
-            "text/xml",
-            "application/x-www-form-urlencoded",
-            "multipart/form-data",
-            "application/graphql",
-            "text/csv",
-            "text/tab-separated-values",
-            "application/ld+json",
-            "application/rss+xml",
-            "application/atom+xml",
-            # Binary types
-            "application/octet-stream",
-            "application/pdf",
-            "application/zip",
-            "application/gzip",
-            "application/x-tar",
-            "application/x-gzip",
-            "image/jpeg",
-            "image/png",
-            "image/gif",
-            "image/webp",
-            "image/svg+xml",
-            "image/bmp",
-            "image/tiff",
-            "image/avif",
-            "video/mp4",
-            "video/webm",
-            "video/ogg",
-            "audio/mpeg",
-            "audio/wav",
-            "audio/ogg",
-            "font/woff",
-            "font/woff2",
-            "font/ttf",
-            "font/otf",
-            "application/x-font-ttf",
-            "application/font-woff",
-            "application/font-woff2",
-        ]
-    )
+    # ALLOWED_CONTENT_TYPES: List[str] = Field(
+    #     default_factory=lambda: [
+    #         # Text types
+    #         "application/json",
+    #         "application/xml",
+    #         "application/javascript",
+    #         "text/plain",
+    #         "text/html",
+    #         "text/css",
+    #         "text/javascript",
+    #         "text/xml",
+    #         "application/x-www-form-urlencoded",
+    #         "multipart/form-data",
+    #         "application/graphql",
+    #         "text/csv",
+    #         "text/tab-separated-values",
+    #         "application/ld+json",
+    #         "application/rss+xml",
+    #         "application/atom+xml",
+    #         # Binary types
+    #         "application/octet-stream",
+    #         "application/pdf",
+    #         "application/zip",
+    #         "application/gzip",
+    #         "application/x-tar",
+    #         "application/x-gzip",
+    #         "image/jpeg",
+    #         "image/png",
+    #         "image/gif",
+    #         "image/webp",
+    #         "image/svg+xml",
+    #         "image/bmp",
+    #         "image/tiff",
+    #         "image/avif",
+    #         "video/mp4",
+    #         "video/webm",
+    #         "video/ogg",
+    #         "audio/mpeg",
+    #         "audio/wav",
+    #         "audio/ogg",
+    #         "font/woff",
+    #         "font/woff2",
+    #         "font/ttf",
+    #         "font/otf",
+    #         "application/x-font-ttf",
+    #         "application/font-woff",
+    #         "application/font-woff2",
+    #     ]
+    # )
 
     # Logging Configuration
     LOG_LEVEL: str = "INFO"
@@ -468,14 +469,14 @@ class Settings(BaseSettings):
         if not content_type:
             return False
         main_type = content_type.split(";")[0].strip()
-        return main_type in self.BINARY_CONTENT_TYPES
+        return main_type in BINARY_CONTENT_TYPES
 
     def is_text_content(self, content_type: Optional[str]) -> bool:
         """Check if content type should be buffered as text"""
         if not content_type:
             return True  # Default to text for unknown types
         main_type = content_type.split(";")[0].strip()
-        return main_type in self.TEXT_CONTENT_TYPES
+        return main_type in TEXT_CONTENT_TYPES
 
     def should_stream(
         self, content_length: Optional[int], content_type: Optional[str]
