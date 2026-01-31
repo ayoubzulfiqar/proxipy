@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class EnhancedSecurityMiddleware:
     def __init__(self):
         self.blocked_domains = set(settings.BLOCKED_DOMAINS)
-        self.allowed_content_types = set(BINARY_CONTENT_TYPES ) and set(TEXT_CONTENT_TYPES)
+        self.allowed_content_types = set(BINARY_CONTENT_TYPES) | set(TEXT_CONTENT_TYPES)
         self.suspicious_patterns = [
             r"\.\./",  # Directory traversal
             r"\.\.\\",  # Windows directory traversal
@@ -29,7 +29,7 @@ class EnhancedSecurityMiddleware:
             r"file:",  # File URLs
             r"ftp:",  # FTP URLs
             r"<script",  # Script tags
-            r"on\w+\s*=",  # Event handlers
+            # r"on\w+\s*=",  # Event handlers
         ]
 
     async def validate_request(self, request: Request, target_url: str) -> None:

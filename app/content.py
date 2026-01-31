@@ -6,6 +6,7 @@ from typing import List
 BINARY_CONTENT_TYPES: List[str] = [
     # Documents & Archives
     "application/octet-stream",
+    "video/iso.segment",
     "application/pdf",
     "application/zip",
     "application/gzip",
@@ -19,6 +20,7 @@ BINARY_CONTENT_TYPES: List[str] = [
     "application/x-apple-diskimage",
     "application/vnd.rar",
     "application/vnd.ms-cab-compressed",
+
 
     # Images - Raster
     "image/jpeg",
@@ -399,6 +401,7 @@ BINARY_CONTENT_TYPES: List[str] = [
     # Modern Streaming & CMAF Support
     "video/iso.segment",        # Supports .cmfv, .m4s segments
     "video/mp2t",               # Supports .ts segments
+
     "application/dash+xml",     # Supports .mpd (DASH)
     "video/hevc",               # H.265 raw streams
     "application/x-mpegurl",    # Robust HLS support
@@ -6647,6 +6650,7 @@ TEXT_CONTENT_TYPES: List[str] = [
         "audio/x-midi",
         "audio/x-mod",
         "audio/x-mp2",
+
         "audio/x-mp3",
         "audio/x-mpeg",
         "audio/x-mpeg-3",
