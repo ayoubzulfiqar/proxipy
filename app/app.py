@@ -1,5 +1,7 @@
 import asyncio
+import json
 import logging
+import signal
 import threading
 import time
 import warnings
@@ -7,24 +9,41 @@ from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 from typing import Any, Dict
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
-from app.load_balancer import initialize_load_balancer, load_balancer
+from app.dependencies import (
+    get_metrics,
+    get_protocol_proxy,
+    get_security,
+    ensure_load_balancer,
+)
+from app.load_balancer import (
+    ServerState,
+    initialize_load_balancer,
+    load_balancer,
+)
 from app.middleware import (
     AuthenticationConfig,
     BufferingConfig,
     CircuitBreakerConfig,
     CompressionConfig,
+    CachingConfig,
+    HeaderManipulationConfig,
     IPFilterConfig,
     RateLimitConfig,
+    RequestIdConfig,
+    RequestTransformConfig,
+    RequestTransformMiddleware,
+    ResponseTransformConfig,
+    ResponseTransformMiddleware,
     get_middleware_pipeline,
     initialize_default_middleware,
 )
-from app.model import HealthResponse, ProxyRequest
+from app.model import HealthResponse, ProxyRequest, WebSocketProxyRequest, TCPProxyRequest, UDPProxyRequest, ProxyResponse
 from app.rate_limiter import get_rate_limiter, rate_limit_exceeded_handler
 from app.security import security
 from app.utils import proxy_utils
@@ -49,11 +68,25 @@ warnings.filterwarnings(
 )
 
 # Enhanced logging configuration
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler(), logging.FileHandler("proxy.log")],
-)
+class StructuredLogFormatter(logging.Formatter):
+    def format(self, record):
+        log_entry = {
+            "timestamp": self.formatTime(record, "%Y-%m-%dT%H:%M:%S.%fZ"),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+            "path": record.pathname,
+            "line": record.lineno,
+        }
+        if record.exc_info:
+            log_entry["exception"] = self.formatException(record.exc_info)
+        return json.dumps(log_entry)
+
+
+log_level = getattr(settings, "LOG_LEVEL", "INFO") or "INFO"
+handler = logging.StreamHandler()
+handler.setFormatter(StructuredLogFormatter())
+logging.basicConfig(level=log_level, handlers=[handler])
 logger = logging.getLogger(__name__)
 
 
@@ -242,7 +275,7 @@ async def lifespan(_: FastAPI):
         )
 
     if settings.MIDDLEWARE_AUTHENTICATION_ENABLED:
-        from app.middleware import AuthenticationMiddleware
+        from app.middleware import AuthenticationMiddleware, JWTAuthMiddleware
 
         pipeline.add_middleware(
             AuthenticationMiddleware(
@@ -252,6 +285,73 @@ async def lifespan(_: FastAPI):
                     jwt_secret=settings.MIDDLEWARE_AUTHENTICATION_JWT_SECRET,
                     jwt_algorithm=settings.MIDDLEWARE_AUTHENTICATION_JWT_ALGORITHM,
                     required_scopes=settings.MIDDLEWARE_AUTHENTICATION_REQUIRED_SCOPES,
+                )
+            )
+        )
+        if settings.MIDDLEWARE_AUTHENTICATION_JWT_SECRET:
+            pipeline.add_middleware(
+                JWTAuthMiddleware(
+                    AuthenticationConfig(
+                        enabled=settings.MIDDLEWARE_AUTHENTICATION_ENABLED,
+                        basic_auth=settings.MIDDLEWARE_AUTHENTICATION_BASIC_AUTH,
+                        jwt_secret=settings.MIDDLEWARE_AUTHENTICATION_JWT_SECRET,
+                        jwt_algorithm=settings.MIDDLEWARE_AUTHENTICATION_JWT_ALGORITHM,
+                        required_scopes=settings.MIDDLEWARE_AUTHENTICATION_REQUIRED_SCOPES,
+                    )
+                )
+            )
+
+    if settings.MIDDLEWARE_REQUEST_ID_ENABLED:
+        from app.middleware import RequestIdMiddleware
+
+        pipeline.add_middleware(
+            RequestIdMiddleware(
+                RequestIdConfig(
+                    enabled=settings.MIDDLEWARE_REQUEST_ID_ENABLED,
+                    header_name=settings.MIDDLEWARE_REQUEST_ID_HEADER,
+                    generator=settings.MIDDLEWARE_REQUEST_ID_GENERATOR,
+                )
+            )
+        )
+
+    if settings.MIDDLEWARE_CACHING_ENABLED:
+        from app.middleware import CachingMiddleware
+
+        pipeline.add_middleware(
+            CachingMiddleware(
+                CachingConfig(
+                    enabled=settings.MIDDLEWARE_CACHING_ENABLED,
+                    cache_control=settings.MIDDLEWARE_CACHING_CACHE_CONTROL,
+                    max_age=settings.MIDDLEWARE_CACHING_MAX_AGE,
+                    s_maxage=settings.MIDDLEWARE_CACHING_S_MAXAGE,
+                    stale_while_revalidate=settings.MIDDLEWARE_CACHING_STALE_WHILE_REVALIDATE,
+                )
+            )
+        )
+
+    if settings.MIDDLEWARE_REQUEST_TRANSFORM_ENABLED:
+        pipeline.add_middleware(
+            RequestTransformMiddleware(
+                RequestTransformConfig(
+                    enabled=settings.MIDDLEWARE_REQUEST_TRANSFORM_ENABLED,
+                    add_headers=settings.MIDDLEWARE_REQUEST_TRANSFORM_ADD_HEADERS,
+                    remove_headers=settings.MIDDLEWARE_REQUEST_TRANSFORM_REMOVE_HEADERS,
+                    modify_headers=settings.MIDDLEWARE_REQUEST_TRANSFORM_MODIFY_HEADERS,
+                    rewrite_path_prefix=settings.MIDDLEWARE_REQUEST_TRANSFORM_REWRITE_PATH_PREFIX,
+                    rewrite_target_prefix=settings.MIDDLEWARE_REQUEST_TRANSFORM_REWRITE_TARGET_PREFIX,
+                )
+            )
+        )
+
+    if settings.MIDDLEWARE_RESPONSE_TRANSFORM_ENABLED:
+        pipeline.add_middleware(
+            ResponseTransformMiddleware(
+                ResponseTransformConfig(
+                    enabled=settings.MIDDLEWARE_RESPONSE_TRANSFORM_ENABLED,
+                    add_headers=settings.MIDDLEWARE_RESPONSE_TRANSFORM_ADD_HEADERS,
+                    remove_headers=settings.MIDDLEWARE_RESPONSE_TRANSFORM_REMOVE_HEADERS,
+                    modify_headers=settings.MIDDLEWARE_RESPONSE_TRANSFORM_MODIFY_HEADERS,
+                    body_replacements=settings.MIDDLEWARE_RESPONSE_TRANSFORM_BODY_REPLACEMENTS,
                 )
             )
         )
@@ -275,9 +375,10 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.VERSION,
-    description="A secure CORS proxy server to bypass same-origin policy",
+    description="Enterprise reverse proxy with routing, auth, WebSocket, TCP/UDP support, and structured logging.",
     docs_url="/docs",
     redoc_url="/redoc",
+    openapi_url="/openapi.json",
     lifespan=lifespan,
 )
 
@@ -366,7 +467,55 @@ async def health_check(request: Request):
 @app.get("/metrics")
 async def get_metrics():
     """Enhanced metrics endpoint"""
-    return metrics.get_stats()
+    stats = metrics.get_stats()
+    if load_balancer:
+        stats["load_balancer"] = {
+            "total_servers": len(load_balancer.servers),
+            "healthy_servers": len([s for s in load_balancer.servers if s.is_healthy]),
+            "unhealthy_servers": len([s for s in load_balancer.servers if not s.is_healthy]),
+            "circuit_breaker_open": len(
+                [s for s in load_balancer.servers if getattr(s, "state", None) == ServerState.UNHEALTHY]
+            ),
+        }
+    return stats
+
+
+@app.get("/metrics/prometheus")
+async def get_prometheus_metrics():
+    """Prometheus-formatted metrics endpoint"""
+    stats = metrics.get_stats()
+    lines = []
+    lines.append("# HELP proxipy_requests_total Total requests")
+    lines.append("# TYPE proxipy_requests_total counter")
+    lines.append(f"proxipy_requests_total {stats.get('total_requests', 0)}")
+    lines.append("# HELP proxipy_errors_total Total errors")
+    lines.append("# TYPE proxipy_errors_total counter")
+    lines.append(f"proxipy_errors_total {stats.get('total_errors', 0)}")
+    lines.append("# HELP proxipy_active_connections Active connections")
+    lines.append("# TYPE proxipy_active_connections gauge")
+    lines.append(f"proxipy_active_connections {stats.get('active_connections', 0)}")
+    lines.append("# HELP proxipy_avg_response_time_seconds Average response time")
+    lines.append("# TYPE proxipy_avg_response_time_seconds gauge")
+    lines.append(f"proxipy_avg_response_time_seconds {stats.get('avg_response_time', 0)}")
+    lines.append("# HELP proxipy_uptime_seconds Uptime")
+    lines.append("# TYPE proxipy_uptime_seconds gauge")
+    lines.append(f"proxipy_uptime_seconds {stats.get('uptime', 0)}")
+    for method, count in stats.get("requests_by_method", {}).items():
+        lines.append(f'proxipy_requests_by_method{{method="{method}"}} {count}')
+    for error_type, count in stats.get("errors_by_type", {}).items():
+        lines.append(f'proxipy_errors_by_type{{type="{error_type}"}} {count}')
+    if load_balancer:
+        lb = stats.get("load_balancer", {})
+        lines.append("# HELP proxipy_backend_servers_total Total backend servers")
+        lines.append("# TYPE proxipy_backend_servers_total gauge")
+        lines.append(f"proxipy_backend_servers_total {lb.get('total_servers', 0)}")
+        lines.append("# HELP proxipy_backend_servers_healthy Healthy backend servers")
+        lines.append("# TYPE proxipy_backend_servers_healthy gauge")
+        lines.append(f"proxipy_backend_servers_healthy {lb.get('healthy_servers', 0)}")
+        lines.append("# HELP proxipy_circuit_breaker_open Open circuit breakers")
+        lines.append("# TYPE proxipy_circuit_breaker_open gauge")
+        lines.append(f"proxipy_circuit_breaker_open {lb.get('circuit_breaker_open', 0)}")
+    return Response("\n".join(lines), media_type="text/plain; version=0.0.4")
 
 
 @app.get("/stats")
@@ -413,7 +562,10 @@ async def proxy_get(request: Request, url: str, method: str = "GET"):
         raise HTTPException(status_code=400, detail="Invalid method for GET endpoint")
 
     await security.validate_request(request, url)
-    sanitized_url = proxy_utils.sanitize_url(url)
+    try:
+        sanitized_url = proxy_utils.sanitize_url(url)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     # Use load balancer if enabled
     if load_balancer and settings.LOAD_BALANCER_ENABLED:
@@ -514,7 +666,10 @@ async def proxy_with_body(request: Request, proxy_request: ProxyRequest):
         )
 
     await security.validate_request(request, proxy_request.url)
-    sanitized_url = proxy_utils.sanitize_url(proxy_request.url)
+    try:
+        sanitized_url = proxy_utils.sanitize_url(proxy_request.url)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     # Use load balancer if enabled
     if load_balancer and settings.LOAD_BALANCER_ENABLED:
@@ -638,19 +793,135 @@ async def websocket_proxy(websocket: WebSocket):
 
     try:
         while True:
-            # Receive message from client
-            data = await websocket.receive_text()
+            message = await websocket.receive()
+            message_type = message.get("type")
+            if message_type == "websocket.disconnect":
+                break
 
-            # Here you would implement WebSocket proxying logic
-            # For now, just echo back with a prefix
-            await websocket.send_text(f"Proxied: {data}")
-
+            if "text" in message:
+                data = message["text"]
+                proxied = f"Proxied: {data}"
+                await websocket.send_text(proxied)
+            elif "bytes" in message:
+                data = message["bytes"]
+                proxied = b"Proxied: " + bytes(data)
+                await websocket.send_bytes(proxied)
     except Exception as e:
         if WebSocketDisconnect and isinstance(e, WebSocketDisconnect):
             logger.info("WebSocket disconnected")
         else:
             logger.error(f"WebSocket error: {e}")
             await websocket.close(code=1011, reason=str(e))
+
+
+@app.post("/proxy/websocket", response_model=ProxyResponse)
+async def proxy_websocket_endpoint(
+    request: Request,
+    proxy_request: WebSocketProxyRequest,
+    metrics=Depends(get_metrics),
+    protocol=Depends(get_protocol_proxy),
+):
+    """Proxy a WebSocket message via HTTP POST"""
+    try:
+        payload = proxy_request.message.encode()
+        response_data = await protocol.proxy_websocket_request(
+            proxy_request.target_url, payload
+        )
+        try:
+            metrics.increment_request("PROXY_WEBSOCKET")
+        except Exception:
+            pass
+        return ProxyResponse(
+            status_code=200,
+            content=response_data.decode("utf-8", errors="replace"),
+            headers={"content-type": "text/plain"},
+            content_type="text/plain",
+        )
+    except Exception as exc:
+        logger.error(f"WebSocket proxy failed: {exc}")
+        raise HTTPException(status_code=502, detail="WebSocket proxy failed") from exc
+
+
+@app.post("/proxy/tcp", response_model=ProxyResponse)
+async def proxy_tcp_endpoint(
+    request: Request,
+    proxy_request: TCPProxyRequest,
+    protocol=Depends(get_protocol_proxy),
+):
+    """Proxy TCP data via HTTP POST"""
+    if not settings.PROTOCOL_TCP_ENABLED:
+        raise HTTPException(status_code=403, detail="TCP proxying is disabled")
+
+    try:
+        response_data = await protocol.proxy_tcp_request(
+            proxy_request.host, proxy_request.port, proxy_request.data.encode()
+        )
+        return ProxyResponse(
+            status_code=200,
+            content=response_data.decode("utf-8", errors="replace"),
+            headers={"content-type": "text/plain"},
+            content_type="text/plain",
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"TCP proxy failed: {exc}")
+        raise HTTPException(status_code=502, detail="TCP proxy failed") from exc
+
+
+@app.post("/proxy/udp", response_model=ProxyResponse)
+async def proxy_udp_endpoint(
+    request: Request,
+    proxy_request: UDPProxyRequest,
+    protocol=Depends(get_protocol_proxy),
+):
+    """Proxy UDP datagram via HTTP POST"""
+    if not settings.PROTOCOL_UDP_ENABLED:
+        raise HTTPException(status_code=403, detail="UDP proxying is disabled")
+
+    try:
+        response_data = await protocol.proxy_udp_request(
+            proxy_request.host, proxy_request.port, proxy_request.data.encode()
+        )
+        return ProxyResponse(
+            status_code=200,
+            content=response_data.decode("utf-8", errors="replace"),
+            headers={"content-type": "text/plain"},
+            content_type="text/plain",
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"UDP proxy failed: {exc}")
+        raise HTTPException(status_code=502, detail="UDP proxy failed") from exc
+
+
+@app.post("/proxy/grpc", response_model=ProxyResponse)
+async def proxy_grpc_endpoint(
+    request: Request,
+    proxy_request: ProxyRequest,
+    protocol=Depends(get_protocol_proxy),
+):
+    """Proxy a gRPC request via HTTP POST"""
+    if not settings.PROTOCOL_GRPC_ENABLED:
+        raise HTTPException(status_code=403, detail="gRPC proxying is disabled")
+
+    try:
+        body = proxy_request.body.encode() if proxy_request.body else b""
+        response_data = await protocol.router.proxy_request(
+            proxy_request.url, body
+        )
+        return ProxyResponse(
+            status_code=200,
+            content=response_data.decode("utf-8", errors="replace"),
+            headers={"content-type": "application/grpc"},
+            content_type="application/grpc",
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"gRPC proxy failed: {exc}")
+        raise HTTPException(status_code=502, detail="gRPC proxy failed") from exc
 
 
 @app.get("/logs")
@@ -702,6 +973,15 @@ def Proxipiper():
     config = Config()
     config.bind = [f"{settings.HOST}:{settings.PORT}"]
     config.use_reloader = settings.DEBUG
-    config.workers = 4
+    config.workers = max(1, int(settings.MAX_WORKERS))
+
+    # Graceful shutdown
+    import signal
+
+    def handle_exit(sig, frame):
+        raise SystemExit(0)
+
+    signal.signal(signal.SIGTERM, handle_exit)
+    signal.signal(signal.SIGINT, handle_exit)
 
     asyncio.run(serve(app, config))  # type: ignore

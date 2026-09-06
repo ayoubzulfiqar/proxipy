@@ -13,7 +13,6 @@ from fastapi import HTTPException
 from .config import settings
 
 logger = logging.getLogger(__name__)
-
 # Type aliases for better type checking
 WebSocketProtocol = Any  # websockets.WebSocketClientProtocol
 
@@ -221,6 +220,62 @@ class WebSocketProtocolHandler(ProtocolHandler):
         return ProtocolType.WEBSOCKET
 
 
+class GRPCProtocolHandler(ProtocolHandler):
+    """gRPC protocol handler"""
+
+    def __init__(self, config: ProtocolConfig):
+        super().__init__(config)
+        self.client: Optional[httpx.AsyncClient] = None
+
+    async def connect(self, target_host: str, target_port: int) -> httpx.AsyncClient:
+        """Create HTTP/2-capable client for gRPC"""
+        if self.client is None or self.client.is_closed:
+            limits = httpx.Limits(
+                max_keepalive_connections=20, max_connections=settings.MAX_CONNECTIONS
+            )
+            timeout = httpx.Timeout(
+                connect=settings.CONNECTION_TIMEOUT,
+                read=settings.READ_TIMEOUT,
+                write=settings.WRITE_TIMEOUT,
+                pool=settings.TIMEOUT,
+            )
+            self.client = httpx.AsyncClient(
+                limits=limits,
+                timeout=timeout,
+                follow_redirects=True,
+                max_redirects=5,
+                http2=True,
+                verify=self.config.ssl_verify,
+            )
+        return self.client
+
+    async def send_request(self, connection: Any, request_data: bytes) -> bytes:
+        """Send gRPC request as HTTP/2 POST"""
+        client = connection
+        try:
+            response = await client.post(
+                url="/",
+                content=request_data,
+                headers={
+                    "Content-Type": "application/grpc",
+                    "TE": "trailers",
+                },
+            )
+            return response.content
+        except Exception as e:
+            logger.error(f"gRPC request failed: {e}")
+            raise HTTPException(status_code=500, detail=f"gRPC request failed: {e}")
+
+    async def close(self, connection: Any) -> None:
+        """Close gRPC client"""
+        client = connection
+        if client and not client.is_closed:
+            await client.aclose()
+
+    def get_protocol_type(self) -> ProtocolType:
+        return ProtocolType.GRPC
+
+
 class TCPProtocolHandler(ProtocolHandler):
     """TCP protocol handler"""
 
@@ -398,6 +453,9 @@ class ProtocolRouter:
         self.handlers[ProtocolType.UDP] = UDPProtocolHandler(
             ProtocolConfig(ProtocolType.UDP)
         )
+        self.handlers[ProtocolType.GRPC] = GRPCProtocolHandler(
+            ProtocolConfig(ProtocolType.GRPC)
+        )
 
     def detect_protocol(self, target_url: str) -> ProtocolType:
         """Detect protocol from URL"""
@@ -409,6 +467,12 @@ class ProtocolRouter:
             return ProtocolType.HTTPS
         elif target_url.startswith("http://"):
             return ProtocolType.HTTP
+        elif target_url.startswith("tcp://"):
+            return ProtocolType.TCP
+        elif target_url.startswith("udp://"):
+            return ProtocolType.UDP
+        elif target_url.startswith("grpc://") or ".grpc." in target_url:
+            return ProtocolType.GRPC
         else:
             # Default to HTTP for unknown protocols
             return ProtocolType.HTTP
@@ -469,17 +533,19 @@ class ProtocolProxy:
             "bytes_received": 0,
             "response_times": [],
         }
+        self._ws_connections: Dict[str, Any] = {}
 
     async def proxy_http_request(
         self, target_url: str, method: str, headers: dict, body: bytes
     ) -> bytes:
         """Proxy HTTP request"""
-        # Build HTTP request
-        request_line = f"{method.upper()} {target_url} HTTP/1.1\r\n"
+        request_line = "{method} {url} HTTP/1.1\r\n".format(
+            method=method.upper(), url=target_url
+        )
         header_lines = ""
         for key, value in headers.items():
-            header_lines += f"{key}: {value}\r\n"
-        request_data = f"{request_line}{header_lines}\r\n".encode() + body
+            header_lines += "{key}: {value}\r\n".format(key=key, value=value)
+        request_data = request_line.encode() + header_lines.encode() + b"\r\n" + body
 
         response_data = await self.router.proxy_request(target_url, request_data)
         return response_data
