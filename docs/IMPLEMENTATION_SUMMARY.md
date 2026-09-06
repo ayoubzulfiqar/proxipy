@@ -100,33 +100,40 @@ This document summarizes the implementation of enhanced features for the Proxipy
 
 ### ✅ **Multi-Protocol Proxy Support**
 
-**Files:** `app/protocols.py`
+**Files:** `app/protocols.py`, `app/app.py`, `app/config.py`, `app/model.py`
 
 **Features Implemented:**
 
 - **HTTP/HTTPS Proxying:**
-  - Full HTTP/1.1 and HTTP/2 support
+  - Full HTTP/1.1 request formatting
   - Connection pooling
   - Automatic protocol detection
   - Request/response transformation
 
 - **WebSocket Proxying:**
-  - Full-duplex WebSocket connections
-  - Protocol upgrade handling
-  - Message streaming
-  - Connection lifecycle management
+  - `/websocket` endpoint for live WebSocket traffic
+  - Full-duplex message forwarding
+  - Text and binary streaming support
+  - Connection lifecycle handling
 
 - **TCP Proxying:**
-  - Raw TCP connection proxying
-  - Bidirectional data forwarding
-  - Connection timeout handling
-  - Buffer management
+  - `/proxy/tcp` HTTP API for TCP byte streams
+  - Configurable enable/disable flag
+  - Timeout-aware connections
 
 - **UDP Proxying:**
-  - UDP datagram proxying
-  - Bidirectional packet forwarding
-  - Connectionless protocol support
-  - Future enhancement ready
+  - `/proxy/udp` HTTP API for UDP datagrams
+  - Configurable enable/disable flag
+  - Response decoding with replacement fallback
+
+- **gRPC Proxying:**
+  - `/proxy/grpc` endpoint
+  - HTTP/2-capable proxying path
+  - Configurable enable/disable flag
+
+- **Dependency Injection for Protocols:**
+  - `app/dependencies.py` provides `get_protocol_proxy`
+  - Endpoints consume proxy via `Depends(...)`
 
 ### ✅ **Enhanced Configuration System**
 
@@ -159,7 +166,7 @@ This document summarizes the implementation of enhanced features for the Proxipy
 
 ### ✅ **Enhanced Monitoring & Metrics**
 
-**Files:** `app/main.py`, `app/config.py`
+**Files:** `app/app.py`, `app/config.py`
 
 **Features Implemented:**
 
@@ -169,11 +176,18 @@ This document summarizes the implementation of enhanced features for the Proxipy
   - Connection and response time metrics
   - Health status visualization
 
+- **Prometheus-formatted Metrics Endpoint:**
+  - `/metrics/prometheus` endpoint
+  - Exposes requests, errors, active connections
+  - Backend server/circuit-breaker metrics
+  - Method and error type breakdowns
+
 - **Enhanced Metrics Collection:**
   - Request/response timing
   - Error rate tracking
   - Connection pool utilization
   - Middleware performance metrics
+  - Load balancer/circuit-breaker metrics
 
 - **Health Check Endpoint:**
   - System health status
@@ -276,16 +290,19 @@ protocols:
 
 - `GET /health` - System health with load balancer status
 - `GET /metrics` - Performance metrics
+- `GET /metrics/prometheus` - Prometheus-formatted metrics
 - `GET /stats` - HAProxy-style statistics
-- `GET /proxy` - Enhanced proxy with load balancing
-- `POST /proxy` - Enhanced proxy with body support
-
-### **Original Endpoints (Enhanced)**
-
-- `GET /` - Root endpoint with version info
-- `OPTIONS /proxy` - CORS preflight support
+- `GET /logs` - Server logs access
+- `GET /openapi.json` - OpenAPI specification
 - `GET /docs` - Interactive API documentation
 - `GET /redoc` - Alternative API documentation
+- `POST /proxy` - Enhanced proxy with load balancing
+- `POST /proxy/websocket` - WebSocket proxy support
+- `POST /proxy/tcp` - TCP byte stream proxy
+- `POST /proxy/udp` - UDP datagram proxy
+- `POST /proxy/grpc` - gRPC request proxy
+- `WS /websocket` - Live WebSocket proxy
+- `OPTIONS /proxy` - CORS preflight support
 
 ## Testing
 
@@ -304,10 +321,8 @@ protocols:
 
 ### **Planned Features**
 
-- **gRPC Proxying:** Protocol buffer support
 - **Advanced Routing:** Regex-based routing rules
 - **Fingerprint Spoofing:** JA4/JA4H browser fingerprinting
-- **Prometheus Metrics:** Prometheus-compatible metrics
 - **Distributed Tracing:** OpenTelemetry integration
 - **Advanced Authentication:** OAuth2, SAML support
 

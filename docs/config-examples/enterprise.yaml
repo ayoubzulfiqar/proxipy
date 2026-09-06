@@ -1,0 +1,135 @@
+server:
+  name: "Proxipy"
+  version: "2.5.8"
+  debug: false
+  host: "0.0.0.0"
+  port: 8080
+
+performance:
+  max_connections: 200
+  max_workers: 4
+  connection_timeout: 30.0
+  read_timeout: 60.0
+  write_timeout: 30.0
+
+middleware:
+  rate_limit:
+    enabled: true
+    requests_per_minute: 120
+    requests_per_hour: 2000
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    recovery_timeout: 60.0
+  compression:
+    enabled: true
+    min_size: 1024
+    compression_level: 6
+  buffering:
+    enabled: true
+    max_buffer_size: 1048576
+    buffer_timeout: 5.0
+    enable_streaming: true
+  header_manipulation:
+    enabled: true
+    add_headers:
+      X-Proxy: "Proxipy"
+    remove_headers: []
+    modify_headers: {}
+    strip_prefix: ""
+    redirect_prefix: ""
+  ip_filter:
+    enabled: true
+    whitelist: []
+    blacklist: []
+    block_private_ips: true
+    block_loopback: true
+  authentication:
+    enabled: false
+    basic_auth:
+      admin: "password123"
+    jwt_secret: null
+    jwt_algorithm: "HS256"
+    required_scopes: []
+  request_id:
+    enabled: true
+    header_name: "X-Request-ID"
+    generator: "uuid4"
+  caching:
+    enabled: false
+    cache_control: "no-store"
+    max_age: 0
+    s_maxage: 0
+    stale_while_revalidate: 0
+  request_transform:
+    enabled: false
+    add_headers: {}
+    remove_headers: []
+    modify_headers: {}
+    rewrite_path_prefix: ""
+    rewrite_target_prefix: ""
+  response_transform:
+    enabled: false
+    add_headers: {}
+    remove_headers: []
+    modify_headers: {}
+    body_replacements: {}
+
+load_balancer:
+  enabled: true
+  algorithm: "round_robin"
+  session_stickiness: false
+  session_cookie_name: "PROXIPY_SESSION"
+  session_timeout: 3600
+  enable_circuit_breaker: true
+  circuit_breaker_failure_threshold: 5
+  circuit_breaker_recovery_timeout: 60.0
+  health_check:
+    protocol: "http"
+    path: "/health"
+    interval: 30.0
+    timeout: 5.0
+    healthy_threshold: 2
+    unhealthy_threshold: 3
+    expected_status: 200
+
+backend_servers:
+  - host: "httpbin.org"
+    port: 443
+    protocol: "https"
+    weight: 1
+    max_connections: 100
+  - host: "httpbingo.org"
+    port: 443
+    protocol: "https"
+    weight: 1
+    max_connections: 100
+
+protocol:
+  http_enabled: true
+  https_enabled: true
+  websocket_enabled: true
+  websockets_enabled: true
+  tcp_enabled: false
+  udp_enabled: false
+  grpc_enabled: false
+
+metrics:
+  enabled: true
+  prometheus_enabled: true
+  haproxy_style_enabled: true
+
+authentication:
+  basic_enabled: false
+  basic_users:
+    admin: "password123"
+  jwt_enabled: false
+  jwt_secret: null
+  jwt_algorithm: "HS256"
+  client_cert_enabled: false
+
+logging:
+  level: "INFO"
+  format: "json"
+  file: "proxy.log"
+  structured_logging: true
