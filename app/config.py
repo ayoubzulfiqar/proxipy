@@ -17,9 +17,15 @@ from .middleware import (
     BufferingConfig,
     CircuitBreakerConfig,
     CompressionConfig,
+    CachingConfig,
     HeaderManipulationConfig,
     IPFilterConfig,
+    JWTAuthMiddleware,
     RateLimitConfig,
+    RequestIdConfig,
+    RequestIdMiddleware,
+    RequestTransformConfig,
+    ResponseTransformConfig,
 )
 
 
@@ -310,6 +316,29 @@ class Settings(BaseSettings):
     MIDDLEWARE_AUTHENTICATION_JWT_ALGORITHM: str = "HS256"
     MIDDLEWARE_AUTHENTICATION_REQUIRED_SCOPES: List[str] = Field(default_factory=list)
 
+    MIDDLEWARE_REQUEST_ID_ENABLED: bool = True
+    MIDDLEWARE_REQUEST_ID_HEADER: str = "X-Request-ID"
+    MIDDLEWARE_REQUEST_ID_GENERATOR: str = "uuid4"
+
+    MIDDLEWARE_CACHING_ENABLED: bool = False
+    MIDDLEWARE_CACHING_CACHE_CONTROL: str = "no-store"
+    MIDDLEWARE_CACHING_MAX_AGE: int = 0
+    MIDDLEWARE_CACHING_S_MAXAGE: int = 0
+    MIDDLEWARE_CACHING_STALE_WHILE_REVALIDATE: int = 0
+
+    MIDDLEWARE_REQUEST_TRANSFORM_ENABLED: bool = False
+    MIDDLEWARE_REQUEST_TRANSFORM_ADD_HEADERS: dict = Field(default_factory=dict)
+    MIDDLEWARE_REQUEST_TRANSFORM_REMOVE_HEADERS: List[str] = Field(default_factory=list)
+    MIDDLEWARE_REQUEST_TRANSFORM_MODIFY_HEADERS: dict = Field(default_factory=dict)
+    MIDDLEWARE_REQUEST_TRANSFORM_REWRITE_PATH_PREFIX: str = ""
+    MIDDLEWARE_REQUEST_TRANSFORM_REWRITE_TARGET_PREFIX: str = ""
+
+    MIDDLEWARE_RESPONSE_TRANSFORM_ENABLED: bool = False
+    MIDDLEWARE_RESPONSE_TRANSFORM_ADD_HEADERS: dict = Field(default_factory=dict)
+    MIDDLEWARE_RESPONSE_TRANSFORM_REMOVE_HEADERS: List[str] = Field(default_factory=list)
+    MIDDLEWARE_RESPONSE_TRANSFORM_MODIFY_HEADERS: dict = Field(default_factory=dict)
+    MIDDLEWARE_RESPONSE_TRANSFORM_BODY_REPLACEMENTS: dict = Field(default_factory=dict)
+
     # Protocol Support Configuration
     PROTOCOL_HTTP_ENABLED: bool = True
     PROTOCOL_HTTPS_ENABLED: bool = True
@@ -578,6 +607,64 @@ class Settings(BaseSettings):
             jwt_algorithm=self.MIDDLEWARE_AUTHENTICATION_JWT_ALGORITHM,
             required_scopes=self.MIDDLEWARE_AUTHENTICATION_REQUIRED_SCOPES,
         )
+
+    def get_request_id_config(self) -> RequestIdConfig:
+        """Get request ID configuration"""
+        return RequestIdConfig(
+            enabled=self.MIDDLEWARE_REQUEST_ID_ENABLED,
+            header_name=self.MIDDLEWARE_REQUEST_ID_HEADER,
+            generator=self.MIDDLEWARE_REQUEST_ID_GENERATOR,
+        )
+
+    def get_caching_config(self) -> CachingConfig:
+        """Get caching configuration"""
+        return CachingConfig(
+            enabled=self.MIDDLEWARE_CACHING_ENABLED,
+            cache_control=self.MIDDLEWARE_CACHING_CACHE_CONTROL,
+            max_age=self.MIDDLEWARE_CACHING_MAX_AGE,
+            s_maxage=self.MIDDLEWARE_CACHING_S_MAXAGE,
+            stale_while_revalidate=self.MIDDLEWARE_CACHING_STALE_WHILE_REVALIDATE,
+        )
+
+    def get_request_transform_config(self) -> RequestTransformConfig:
+        """Get request transformation configuration"""
+        return RequestTransformConfig(
+            enabled=self.MIDDLEWARE_REQUEST_TRANSFORM_ENABLED,
+            add_headers=self.MIDDLEWARE_REQUEST_TRANSFORM_ADD_HEADERS,
+            remove_headers=self.MIDDLEWARE_REQUEST_TRANSFORM_REMOVE_HEADERS,
+            modify_headers=self.MIDDLEWARE_REQUEST_TRANSFORM_MODIFY_HEADERS,
+            rewrite_path_prefix=self.MIDDLEWARE_REQUEST_TRANSFORM_REWRITE_PATH_PREFIX,
+            rewrite_target_prefix=self.MIDDLEWARE_REQUEST_TRANSFORM_REWRITE_TARGET_PREFIX,
+        )
+
+    def get_response_transform_config(self) -> ResponseTransformConfig:
+        """Get response transformation configuration"""
+        return ResponseTransformConfig(
+            enabled=self.MIDDLEWARE_RESPONSE_TRANSFORM_ENABLED,
+            add_headers=self.MIDDLEWARE_RESPONSE_TRANSFORM_ADD_HEADERS,
+            remove_headers=self.MIDDLEWARE_RESPONSE_TRANSFORM_REMOVE_HEADERS,
+            modify_headers=self.MIDDLEWARE_RESPONSE_TRANSFORM_MODIFY_HEADERS,
+            body_replacements=self.MIDDLEWARE_RESPONSE_TRANSFORM_BODY_REPLACEMENTS,
+        )
+
+    def validate_config(self) -> None:
+        """Validate critical configuration values"""
+        if self.PORT < 1 or self.PORT > 65535:
+            raise ValueError(f"Invalid port: {self.PORT}")
+        if self.MAX_CONNECTIONS < 1:
+            raise ValueError("MAX_CONNECTIONS must be >= 1")
+        if self.MAX_WORKERS < 1:
+            raise ValueError("MAX_WORKERS must be >= 1")
+        if self.STREAM_CHUNK_SIZE < 1024:
+            raise ValueError("STREAM_CHUNK_SIZE is too small")
+        if self.MAX_CONTENT_LENGTH < 1:
+            raise ValueError("MAX_CONTENT_LENGTH must be >= 1")
+        if self.RATE_LIMIT_PER_MINUTE < 1:
+            raise ValueError("RATE_LIMIT_PER_MINUTE must be >= 1")
+        if self.LOAD_BALANCER_ENABLED and not self.BACKEND_SERVERS:
+            raise ValueError("Load balancer enabled but no backend servers configured")
+        if self.MIDDLEWARE_AUTHENTICATION_ENABLED and not self.MIDDLEWARE_AUTHENTICATION_BASIC_AUTH and not self.MIDDLEWARE_AUTHENTICATION_JWT_SECRET:
+            raise ValueError("Authentication enabled but no credentials configured")
 
 
 settings = Settings()

@@ -55,3 +55,59 @@ class HealthResponse(BaseModel):
     status: str
     version: str
     timestamp: str
+
+
+class WebSocketProxyRequest(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "target_url": "ws://example.com/ws",
+                "message": "hello",
+            }
+        }
+    )
+
+    target_url: str = Field(..., description="Target WebSocket URL")
+    message: str = Field(..., description="Message to send")
+
+
+class TCPProxyRequest(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "host": "127.0.0.1",
+                "port": 1234,
+                "data": "base64-or-plain",
+            }
+        }
+    )
+
+    host: str = Field(..., description="Target TCP host")
+    port: int = Field(..., ge=1, le=65535, description="Target TCP port")
+    data: str = Field(..., description="Data to send")
+
+
+class UDPProxyRequest(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "host": "127.0.0.1",
+                "port": 1234,
+                "data": "base64-or-plain",
+            }
+        }
+    )
+
+    host: str = Field(..., description="Target UDP host")
+    port: int = Field(..., ge=1, le=65535, description="Target UDP port")
+    data: str = Field(..., description="Datagram payload")
+
+
+class StructuredLogEntry(BaseModel):
+    timestamp: str
+    level: str
+    logger: str
+    message: str
+    path: Optional[str] = None
+    line: Optional[int] = None
+    exception: Optional[str] = None

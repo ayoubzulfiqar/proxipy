@@ -1,8 +1,16 @@
 import asyncio
+import contextvars
 import gzip
+import hashlib
 import logging
+import random
+import secrets
+import string
 import time
+import uuid
 from abc import ABC, abstractmethod
+from collections import defaultdict, deque
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
@@ -21,12 +29,17 @@ def get_settings() -> "Settings":
     return settings
 
 
+request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "request_id", default="-"
+)
+
 logger = logging.getLogger(__name__)
 
 
 class MiddlewarePriority(int, Enum):
     """Middleware execution priorities"""
 
+    REQUEST_ID = 5
     AUTHENTICATION = 10
     RATE_LIMITING = 20
     CIRCUIT_BREAKER = 30
@@ -35,6 +48,7 @@ class MiddlewarePriority(int, Enum):
     HEADER_MANIPULATION = 60
     COMPRESSION = 70
     BUFFERING = 80
+    CACHING = 85
     LOGGING = 90
 
 
@@ -95,6 +109,27 @@ class HeaderManipulationConfig(MiddlewareConfig):
     modify_headers: Dict[str, str] = field(default_factory=dict)
     strip_prefix: str = ""
     redirect_prefix: str = ""
+
+
+@dataclass
+class RequestTransformConfig(MiddlewareConfig):
+    """Request transformation configuration"""
+
+    add_headers: Dict[str, str] = field(default_factory=dict)
+    remove_headers: List[str] = field(default_factory=list)
+    modify_headers: Dict[str, str] = field(default_factory=dict)
+    rewrite_path_prefix: str = ""
+    rewrite_target_prefix: str = ""
+
+
+@dataclass
+class ResponseTransformConfig(MiddlewareConfig):
+    """Response transformation configuration"""
+
+    add_headers: Dict[str, str] = field(default_factory=dict)
+    remove_headers: List[str] = field(default_factory=list)
+    modify_headers: Dict[str, str] = field(default_factory=dict)
+    body_replacements: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -495,6 +530,135 @@ class BufferingMiddleware(BaseMiddleware):
             )
 
 
+@dataclass
+class RequestIdConfig(MiddlewareConfig):
+    """Request ID configuration"""
+
+    enabled: bool = True
+    header_name: str = "X-Request-ID"
+    generator: str = "uuid4"
+
+
+@dataclass
+class CachingConfig(MiddlewareConfig):
+    """Caching headers configuration"""
+
+    cache_control: str = "no-store"
+    max_age: int = 0
+    s_maxage: int = 0
+    stale_while_revalidate: int = 0
+    enable_etag: bool = False
+    enable_last_modified: bool = False
+
+
+class RequestIdMiddleware(BaseMiddleware):
+    """Request ID generation/propagation middleware"""
+
+    def __init__(self, config: RequestIdConfig):
+        super().__init__(config)
+        self.config = config
+
+    def _generate_request_id(self) -> str:
+        generator = (self.config.generator or "uuid4").lower()
+        if generator == "uuid4":
+            return str(uuid.uuid4())
+        if generator == "ulid":
+            return "".join(
+                random.choices(string.ascii_letters + string.digits, k=26)
+            )
+        return str(uuid.uuid4())
+
+    async def process_request(self, context: MiddlewareContext) -> None:
+        if not self.should_execute(context) or not context.request:
+            return
+
+        request = context.request
+        request_id = request.headers.get(self.config.header_name)
+        if not request_id:
+            request_id = self._generate_request_id()
+
+        request.state.request_id = request_id
+        request_id_var.set(request_id)
+        context.request_data["request_id"] = request_id
+
+    async def process_response(self, context: MiddlewareContext) -> None:
+        if not self.should_execute(context) or not context.response:
+            return
+
+        request_id = context.request_data.get("request_id") or request_id_var.get("-")
+        context.response.headers[self.config.header_name] = request_id
+
+
+class JWTAuthMiddleware(BaseMiddleware):
+    """JWT authentication middleware"""
+
+    def __init__(self, config: AuthenticationConfig):
+        super().__init__(config)
+        self.config = config
+
+    async def process_request(self, context: MiddlewareContext) -> None:
+        if not self.should_execute(context):
+            return
+
+        request = context.request
+        if not request:
+            return
+
+        if not self.config.jwt_secret:
+            return
+
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Missing token")
+
+        token = auth_header.split(" ", 1)[1].strip()
+        try:
+            from jose import JWTError, jwt
+
+            payload = jwt.decode(
+                token,
+                self.config.jwt_secret,
+                algorithms=[self.config.jwt_algorithm or "HS256"],
+            )
+            context.request_data["jwt_payload"] = payload
+        except Exception as e:
+            logger.warning("JWT validation failed: %s", e)
+            raise HTTPException(status_code=401, detail="Invalid token") from e
+
+    async def process_response(self, context: MiddlewareContext) -> None:
+        pass
+
+
+class CachingMiddleware(BaseMiddleware):
+    """Caching headers middleware"""
+
+    def __init__(self, config: CachingConfig):
+        super().__init__(config)
+        self.config = config
+
+    async def process_request(self, context: MiddlewareContext) -> None:
+        pass
+
+    async def process_response(self, context: MiddlewareContext) -> None:
+        if not self.should_execute(context) or not context.response:
+            return
+
+        directives = []
+        if self.config.max_age > 0:
+            directives.append(f"max-age={self.config.max_age}")
+        if self.config.s_maxage > 0:
+            directives.append(f"s-maxage={self.config.s_maxage}")
+        if self.config.stale_while_revalidate > 0:
+            directives.append(
+                f"stale-while-revalidate={self.config.stale_while_revalidate}"
+            )
+        if self.config.cache_control:
+            directives.append(self.config.cache_control)
+
+        if directives:
+            context.response.headers["Cache-Control"] = ", ".join(directives)
+
+
 class HeaderManipulationMiddleware(BaseMiddleware):
     """Header manipulation middleware"""
 
@@ -597,6 +761,77 @@ class IPFilterMiddleware(BaseMiddleware):
 
     async def process_response(self, context: MiddlewareContext) -> None:
         pass
+
+
+class RequestTransformMiddleware(BaseMiddleware):
+    """Request transformation middleware"""
+
+    def __init__(self, config: RequestTransformConfig):
+        super().__init__(config)
+        self.config = config
+
+    async def process_request(self, context: MiddlewareContext) -> None:
+        if not self.should_execute(context) or not context.request:
+            return
+
+        headers = dict(context.request.headers) if context.request.headers else {}
+
+        for header in self.config.remove_headers:
+            headers.pop(header, None)
+
+        headers.update(self.config.add_headers)
+        for old_header, new_value in self.config.modify_headers.items():
+            headers[old_header] = new_value
+
+        context.request_data["modified_headers"] = headers
+
+        if self.config.rewrite_path_prefix and context.request:
+            path = str(context.request.url.path)
+            if path.startswith(self.config.rewrite_path_prefix):
+                new_path = path.replace(
+                    self.config.rewrite_path_prefix,
+                    self.config.rewrite_target_prefix,
+                    1,
+                )
+                context.request_data["rewritten_path"] = new_path
+
+    async def process_response(self, context: MiddlewareContext) -> None:
+        pass
+
+
+class ResponseTransformMiddleware(BaseMiddleware):
+    """Response transformation middleware"""
+
+    def __init__(self, config: ResponseTransformConfig):
+        super().__init__(config)
+        self.config = config
+
+    async def process_request(self, context: MiddlewareContext) -> None:
+        pass
+
+    async def process_response(self, context: MiddlewareContext) -> None:
+        if not self.should_execute(context) or not context.response:
+            return
+
+        for header in self.config.remove_headers:
+            if header in context.response.headers:
+                del context.response.headers[header]
+
+        for header, value in self.config.add_headers.items():
+            context.response.headers[header] = value
+
+        for old_header, new_value in self.config.modify_headers.items():
+            if old_header in context.response.headers:
+                context.response.headers[old_header] = new_value
+
+        if self.config.body_replacements and context.response.body is not None:
+            body = context.response.body
+            if isinstance(body, memoryview):
+                body = bytes(body)
+            body_text = body.decode("utf-8", errors="replace")
+            for old, new in self.config.body_replacements.items():
+                body_text = body_text.replace(old, new)
+            context.response.body = body_text.encode("utf-8")
 
 
 class LoggingMiddleware(BaseMiddleware):
