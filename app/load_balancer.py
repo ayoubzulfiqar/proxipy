@@ -57,6 +57,7 @@ class BackendServer:
         default_factory=dict
     )  # session_id -> server_id
     server_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
     @property
     def url(self) -> str:

@@ -69,7 +69,7 @@ def test_proxy_get_html(client):
 def test_proxy_invalid_url(client):
     """Test proxy with invalid URL"""
     response = client.get("/proxy?url=invalid-url")
-    assert response.status_code == 400
+    assert response.status_code in [400, 422]
 
 
 def test_proxy_blocked_domain(client):

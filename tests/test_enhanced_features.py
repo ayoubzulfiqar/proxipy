@@ -341,19 +341,18 @@ class TestEnhancedEndpoints:
         """Test proxy endpoint with load balancer enabled"""
         # Mock settings
         mock_settings.LOAD_BALANCER_ENABLED = True
+        mock_settings.RATE_LIMIT_PER_MINUTE = 1000
 
         # Mock load balancer
-        mock_lb_instance = Mock()
-        mock_lb_instance.select_server = AsyncMock(return_value=None)
-        mock_lb_instance.record_success = AsyncMock()
-        mock_lb_instance.record_failure = AsyncMock()
-        mock_lb.return_value = mock_lb_instance
+        mock_lb.select_server = AsyncMock(return_value=None)
+        mock_lb.record_success = Mock()
+        mock_lb.record_failure = Mock()
 
         # Test that load balancer is used when enabled
         response = client.get("/proxy?url=http://example.com&method=GET")
 
-        # Should return 503 if no healthy servers, or 429 if rate limited
-        assert response.status_code in [503, 429]
+        # May return 429 due to testclient rate limiting or 503 if no healthy servers
+        assert response.status_code in [429, 503]
 
     def test_proxy_with_large_request_body(self, client):
         """Test proxy with large request body"""

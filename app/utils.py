@@ -13,6 +13,33 @@ from .config import settings
 
 logger = logging.getLogger(__name__)
 
+_HOST_REQUIRES_SCHEME = re.compile(
+    r"^[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?::\d+)?$"
+)
+
+_HOSTNAME_RE = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9\-]{0,61}[A-Za-z0-9])?$")
+
+
+def _is_valid_hostname(hostname: str) -> bool:
+    if not hostname or hostname.endswith("."):
+        return False
+
+    if hostname.lower() in {"localhost", "127.0.0.1", "::1"}:
+        return True
+
+    try:
+        import ipaddress
+
+        ipaddress.ip_address(hostname)
+        return True
+    except ValueError:
+        pass
+
+    if "." not in hostname:
+        return False
+
+    return all(_HOSTNAME_RE.match(part) for part in hostname.split("."))
+
 
 class EnhancedProxyUtils:
     def __init__(self):
@@ -22,22 +49,31 @@ class EnhancedProxyUtils:
     def sanitize_url(self, url: str) -> str:
         """Sanitize and validate URL"""
         # Remove potentially dangerous characters
-        url = re.sub(r"[\x00-\x1F\x7F]", "", url)
+        url = re.sub(r"[\x00-\x1F\x7F]", "", url).strip()
+
+        if not url:
+            raise ValueError("Empty URL is not allowed")
 
         # Ensure URL is properly formatted
         parsed = urlparse(url)
-        if not parsed.scheme:
-            # If no scheme, assume https for security
-            url = "https://" + url
-            parsed = urlparse(url)
 
-        # Handle relative URLs that start with /
-        if parsed.scheme and not parsed.netloc and url.startswith("/"):
-            # This is a relative URL - we need to add a base domain
-            # For security, we'll reject these and let the caller handle them
-            raise ValueError(
-                f"Relative URL detected: {url}. Please provide a full URL with domain."
-            )
+        if not parsed.scheme:
+            candidate = "https://" + url
+            parsed = urlparse(candidate)
+            host_part = (parsed.netloc or parsed.path.split("/", 1)[0]).strip()
+            if "/" in host_part:
+                host_part = host_part.split("/", 1)[0]
+            if not host_part or ":" in host_part.split(".")[0] or not _HOST_REQUIRES_SCHEME.match(host_part):
+                raise ValueError(
+                    f"Invalid URL format: {url}. Provide a full URL with scheme and hostname."
+                )
+            url = candidate
+
+        if parsed.scheme and not parsed.netloc:
+            if url.startswith("/"):
+                raise ValueError(
+                    f"Relative URL detected: {url}. Please provide a full URL with domain."
+                )
 
         # Reconstruct URL without fragments
         sanitized = urlunparse(
@@ -50,6 +86,17 @@ class EnhancedProxyUtils:
                 "",  # Remove fragment
             )
         )
+
+        if not parsed.scheme or not parsed.netloc:
+            raise ValueError(
+                "Invalid URL format - must include scheme (http/https) and domain"
+            )
+
+        host = parsed.hostname
+        if not host or not _is_valid_hostname(host):
+            raise ValueError(
+                "Invalid URL format - target host is not a valid hostname or IP"
+            )
 
         return sanitized
 

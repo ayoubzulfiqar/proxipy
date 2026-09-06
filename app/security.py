@@ -12,6 +12,29 @@ from .content import BINARY_CONTENT_TYPES, TEXT_CONTENT_TYPES
 
 logger = logging.getLogger(__name__)
 
+_HOSTNAME_RE = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9\-]{0,61}[A-Za-z0-9])?$")
+
+
+def _is_valid_hostname(hostname: str) -> bool:
+    if not hostname or hostname.endswith("."):
+        return False
+
+    # Allow exact localhost variations
+    if hostname.lower() in {"localhost", "127.0.0.1", "::1"}:
+        return True
+
+    try:
+        ipaddress.ip_address(hostname)
+        return True
+    except ValueError:
+        pass
+
+    # Require at least one dot for normal DNS hostnames
+    if "." not in hostname:
+        return False
+
+    return all(_HOSTNAME_RE.match(part) for part in hostname.split("."))
+
 
 class EnhancedSecurityMiddleware:
     def __init__(self):
